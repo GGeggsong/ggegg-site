@@ -12,7 +12,6 @@ import {
 	useReducer,
 } from '@wordpress/element'
 import PlacementsBuilder from './PlacementsBuilder'
-import DraggableItems from './DraggableItems'
 import ViewSwitch from './ViewSwitch'
 import AvailableItems from './AvailableItems'
 import { builderReducer } from './builderReducer'

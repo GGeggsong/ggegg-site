@@ -10,6 +10,8 @@ import { getRequestUrl } from './search/get-request-url'
 
 let alreadyRunning = false
 
+const productPricesAndStatusCache = {}
+
 const decodeHTMLEntities = (string) => {
 	var doc = new DOMParser().parseFromString(string, 'text/html')
 	return doc.documentElement.textContent
@@ -38,8 +40,8 @@ const cachedFetch = (url, nonce = '') => {
 	return fetch(url, {
 		signal: controller.signal,
 		headers: {
-			'X-WP-Nonce': nonce,
-		},
+			'X-WP-Nonce': nonce
+		}
 	}).then((response) => {
 		store[url] = response.clone()
 
@@ -79,17 +81,17 @@ const getPreviewElFor = ({
 		ct_featured_media,
 		product_price = 0,
 		product_status = '',
-		placeholder_image = null,
-	},
+		placeholder_image = null
+	}
 }) => {
 	const decodedTitle = decodeHTMLEntities(title)
 
 	const defaultMediaDetails = {
 		sizes: {
 			thumbnail: {
-				source_url: placeholder_image,
-			},
-		},
+				source_url: placeholder_image
+			}
+		}
 	}
 
 	const sizes =
@@ -101,8 +103,8 @@ const getPreviewElFor = ({
 				<span
 					{...{
 						class: classnames({
-							['ct-media-container']: true,
-						}),
+							['ct-media-container']: true
+						})
 					}}>
 					<img
 						{...{
@@ -115,9 +117,9 @@ const getPreviewElFor = ({
 												? current
 												: currentSmallest,
 										{
-											width: 9999999999,
+											width: 9999999999
 										}
-								  ).source_url || ct_featured_media.source_url,
+									).source_url || ct_featured_media.source_url
 						}}
 						style={{ aspectRatio: '1/1' }}
 					/>
@@ -132,7 +134,7 @@ const getPreviewElFor = ({
 							<small
 								className="price"
 								dangerouslySetInnerHTML={{
-									__html: product_price,
+									__html: product_price
 								}}
 								key="price"
 							/>
@@ -141,7 +143,7 @@ const getPreviewElFor = ({
 							<small
 								className="stock-status"
 								dangerouslySetInnerHTML={{
-									__html: product_status,
+									__html: product_status
 								}}
 								key="product-status"
 							/>
@@ -178,7 +180,7 @@ export const mount = (formEl, args = {}) => {
 
 		perPage: 5,
 
-		...args,
+		...args
 	}
 
 	if (!maybeEl || !window.fetch) {
@@ -214,7 +216,7 @@ export const mount = (formEl, args = {}) => {
 		const requestUrl = getRequestUrl({
 			formEl,
 			inputValue: e.target.value,
-			perPage: options.perPage,
+			perPage: options.perPage
 		})
 
 		const maybeNonce = formEl.querySelector('.ct-live-results-nonce')
@@ -233,6 +235,65 @@ export const mount = (formEl, args = {}) => {
 			await loadStyle(ct_localizations.dynamic_styles.search_lazy)
 
 			const posts = await response.json()
+
+			if (
+				(formEl.dataset.liveResults || '').indexOf('product_price') > -1
+			) {
+				const onlyProducts = posts.filter(
+					(p) => p.subtype === 'product'
+				)
+
+				const maybeAllCached = onlyProducts.every(
+					(post) => productPricesAndStatusCache[post.id]
+				)
+
+				if (!maybeAllCached) {
+					const requestRestUrl = `${ct_localizations.rest_url}wc/store/products`
+
+					const requestRestUrlParams = new URLSearchParams()
+					requestRestUrlParams.append(
+						'include',
+						onlyProducts
+							.filter((p) => !productPricesAndStatusCache[p.id])
+							.map((p) => p.id)
+							.sort()
+							.join(',')
+					)
+
+					const productsResponse = await cachedFetch(
+						`${requestRestUrl}?${requestRestUrlParams.toString()}`,
+						maybeNonce ? maybeNonce.value : ''
+					)
+
+					const products = await productsResponse.json()
+
+					products.forEach((product) => {
+						productPricesAndStatusCache[product.id] = {
+							price_html: product.price_html,
+							is_in_stock: product.is_in_stock
+						}
+					})
+
+					posts.forEach((post) => {
+						if (post.subtype !== 'product') {
+							return
+						}
+
+						const matchedProduct =
+							productPricesAndStatusCache[post.id]
+
+						if (matchedProduct) {
+							post.product_price = matchedProduct.price_html || ''
+							post.product_status = matchedProduct?.is_in_stock
+								? ct_localizations
+										.search_live_stock_status_texts.instock
+								: ct_localizations
+										.search_live_stock_status_texts
+										.outofstock
+						}
+					})
+				}
+			}
 
 			if (alreadyRunning) {
 				return
@@ -297,7 +358,7 @@ export const mount = (formEl, args = {}) => {
 									hasThumbs:
 										(
 											formEl.dataset.liveResults || ''
-										).indexOf('thumbs') > -1,
+										).indexOf('thumbs') > -1
 								})
 							)}
 
@@ -309,7 +370,7 @@ export const mount = (formEl, args = {}) => {
 									href: ct_localizations.search_url.replace(
 										/QUERY_STRING/,
 										e.target.value
-									),
+									)
 								}}>
 								{ct_localizations.show_more_text}
 							</a>

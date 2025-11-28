@@ -2,7 +2,7 @@ import {
 	createElement,
 	useState,
 	useContext,
-	Fragment,
+	Fragment
 } from '@wordpress/element'
 import { DragDropContext } from '../BuilderRoot'
 import cls from 'classnames'
@@ -33,7 +33,11 @@ const PanelsEmptyOverlay = ({ isShowing, setIsShowing }) => {
 					<div
 						className="ct-modal-actions has-divider"
 						data-buttons="2">
-						<button onClick={(e) => {}} className="button">
+						<button
+							onClick={(e) => {
+								setIsShowing(false)
+							}}
+							className="button">
 							{__('Cancel', 'blocksy')}
 						</button>
 
@@ -62,7 +66,7 @@ const PanelsManager = () => {
 		option,
 		builderValueCollection,
 		builderValueDispatch,
-		panelsActions,
+		panelsActions
 	} = useContext(DragDropContext)
 
 	const allSections = builderValueCollection.sections.filter(
@@ -76,7 +80,7 @@ const PanelsManager = () => {
 				let panelLabel =
 					name ||
 					{
-						'type-1': __('Global Header', 'blocksy'),
+						'type-1': __('Global Header', 'blocksy')
 					}[id] ||
 					id
 
@@ -88,7 +92,7 @@ const PanelsManager = () => {
 
 				const option = {
 					label: panelLabel,
-					'inner-options': headerOptions,
+					'inner-options': headerOptions
 				}
 
 				return (
@@ -130,8 +134,8 @@ const PanelsManager = () => {
 																	? {}
 																	: builderValue.settings ||
 																			{}
-															),
-														},
+															)
+														}
 													})
 												}}
 												view="simple"
@@ -142,7 +146,7 @@ const PanelsManager = () => {
 										<li
 											className={cls({
 												active: id === builderValue.id,
-												'ct-global': id === 'type-1',
+												'ct-global': id === 'type-1'
 											})}
 											onClick={() => {
 												if (

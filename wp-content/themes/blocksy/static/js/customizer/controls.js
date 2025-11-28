@@ -54,12 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				document.querySelector('.ct-onboarding-button')
 			)
 			root.render(
-				<ProOverlay
-					username={
-						document.querySelector('.ct-onboarding-button button')
-							.dataset.username
-					}
-				/>
+				<ProOverlay username={ct_customizer_localizations.username} />
 			)
 		}
 	}, 50)
