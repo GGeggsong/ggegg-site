@@ -273,26 +273,24 @@ export const mount = (formEl, args = {}) => {
 							is_in_stock: product.is_in_stock
 						}
 					})
-
-					posts.forEach((post) => {
-						if (post.subtype !== 'product') {
-							return
-						}
-
-						const matchedProduct =
-							productPricesAndStatusCache[post.id]
-
-						if (matchedProduct) {
-							post.product_price = matchedProduct.price_html || ''
-							post.product_status = matchedProduct?.is_in_stock
-								? ct_localizations
-										.search_live_stock_status_texts.instock
-								: ct_localizations
-										.search_live_stock_status_texts
-										.outofstock
-						}
-					})
 				}
+
+				posts.forEach((post) => {
+					if (post.subtype !== 'product') {
+						return
+					}
+
+					const matchedProduct = productPricesAndStatusCache[post.id]
+
+					if (matchedProduct) {
+						post.product_price = matchedProduct.price_html || ''
+						post.product_status = matchedProduct?.is_in_stock
+							? ct_localizations.search_live_stock_status_texts
+									.instock
+							: ct_localizations.search_live_stock_status_texts
+									.outofstock
+					}
+				})
 			}
 
 			if (alreadyRunning) {
