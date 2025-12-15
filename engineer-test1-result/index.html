@@ -273,12 +273,12 @@ const mapping = {
 
 // ========= 五行圖片（換成你的正式網址即可） =========
 const imgMap = {
-  mu:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/WOOD.png",
-  huo:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/FIRE.png",
-  tu:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/EARTH.png",
-  jin:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/METAL.png",
-  shui:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/WATER.png",
-  neutral:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/NEUTRAL.png"
+  mu:"https://ggeggsong.com/wp-content/uploads/2025/12/WOOD.png",
+  huo:"https://ggeggsong.com/wp-content/uploads/2025/12/FIRE.png",
+  tu:"https://ggeggsong.com/wp-content/uploads/2025/12/EARTH.png",
+  jin:"https://ggeggsong.com/wp-content/uploads/2025/12/METAL.png",
+  shui:"https://ggeggsong.com/wp-content/uploads/2025/12/WATER.png",
+  neutral:"https://ggeggsong.com/wp-content/uploads/2025/12/NEUTRAL.png"
 };
 
 // ========= 計算分數 =========
@@ -294,8 +294,8 @@ let sorted = Object.entries(score).sort((a,b)=>b[1]-a[1]);
 let topName = sorted[0][0];
 let topScore = sorted[0][1];
 
-// ========= 中性條件（最高分 ≤ 1 → 中性） =========
-let finalKey = (topScore <= 1) ? "neutral" : topName;
+// ========= 中性條件（最高分 ≤ 3 → 中性） =========
+let finalKey = (topScore <= 3) ? "neutral" : topName;
 
 // ========= 類型名稱 =========
 const resultNames = {
@@ -413,7 +413,6 @@ document.getElementById("download-img").onclick = () => {
   a.click();
 };
 </script>
-
 		</div>
 
 		
