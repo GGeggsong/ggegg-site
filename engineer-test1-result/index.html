@@ -223,112 +223,197 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
   <p id="loading">正在分析你的回答…</p>
 
   <div id="result-box" style="display:none;border:1px solid #ddd;padding:20px;border-radius:12px;margin-top:20px;">
+
+    <!-- ⭐ 顯示圖片 -->
+    <img decoding="async" id="result-img" src="" style="width:260px; display:block; margin:20px auto;">
+
+    <!-- ⭐ 顯示五行分數 -->
+    <p id="score-text" style="text-align:center;font-size:18px;margin-bottom:15px;"></p>
+
     <h3 id="result-title" style="text-align:center;margin-bottom:10px;"></h3>
-    <p id="result-desc" style="font-size:18px;"></p>
+    <p id="result-desc" style="font-size:18px;white-space:pre-line;"></p>
+
+    <!-- ⭐ 下載結果圖片 -->
+    <div style="text-align:center;margin-top:20px;">
+      <button id="download-img" style="padding:10px 20px;border:none;border-radius:6px;background:#555;color:#fff;cursor:pointer;">
+        下載結果圖片
+      </button>
+    </div>
   </div>
 
   <div id="share-section" style="display:none;text-align:center;margin-top:30px;">
     <p>分享你的測驗結果：</p>
-    <button id="fb-share" style="padding:10px 20px;border:none;border-radius:6px;background:#1877F2;color:#fff;margin-right:10px;cursor:pointer;">分享至 Facebook</button>
-    <button id="line-share" style="padding:10px 20px;border:none;border-radius:6px;background:#06C755;color:#fff;cursor:pointer;">分享至 LINE</button>
+    <button id="fb-share" style="padding:10px 20px;border:none;border-radius:6px;background:#1877F2;color:#fff;margin-right:10px;cursor:pointer;">分享到 Facebook</button>
+    <button id="line-share" style="padding:10px 20px;border:none;border-radius:6px;background:#06C755;color:#fff;cursor:pointer;">分享到 LINE</button>
   </div>
 </div>
 
 <script>
-// ===== 讀取 URL 參數 =====
+// ========= 取得 URL 參數 =========
 function getParam(key) {
   return new URLSearchParams(window.location.search).get(key);
 }
 
-// ===== 五行分數 =====
-let score = {
-  mu: 0,  // 木
-  huo: 0, // 火
-  tu: 0,  // 土
-  jin: 0, // 金
-  shui: 0 // 水
-};
+// ========= 五行分數 =========
+let score = { mu:0, huo:0, tu:0, jin:0, shui:0 };
 
-// ===== 題目對應表 =====
+// ========= 題目對應表 =========
 const mapping = {
-  Q1:  { A:"mu",  B:"tu",  C:"mu", D:"jin", E:"shui" },
-  Q2:  { A:"tu",  B:"huo", C:"mu", D:"jin", E:"shui" },
-  Q3:  { A:"huo", B:"mu",  C:"tu", D:"jin", E:"shui" },
-  Q4:  { A:"huo", B:"tu",  C:"mu", D:"jin", E:"shui" },
-  Q5:  { A:"huo", B:"mu",  C:"tu", D:"jin", E:"shui" },
-  Q6:  { A:"huo", B:"mu",  C:"tu", D:"jin", E:"shui" },
-  Q7:  { A:"shui",B:"huo", C:"mu", D:"jin", E:"tu"  },
-  Q8:  { A:"huo", B:"mu",  C:"tu", D:"jin", E:"shui" },
-  Q9:  { A:"huo", B:"mu",  C:"tu", D:"jin", E:"shui" },
-  Q10: { A:"huo", B:"mu",  C:"tu", D:"jin", E:"shui" }
+  Q1:{A:"mu", B:"tu", C:"mu", D:"jin", E:"shui"},
+  Q2:{A:"tu", B:"huo",C:"mu", D:"jin", E:"shui"},
+  Q3:{A:"huo",B:"mu", C:"tu", D:"jin", E:"shui"},
+  Q4:{A:"huo",B:"tu", C:"mu", D:"jin", E:"shui"},
+  Q5:{A:"huo",B:"mu", C:"tu", D:"jin", E:"shui"},
+  Q6:{A:"huo",B:"mu", C:"tu", D:"jin", E:"shui"},
+  Q7:{A:"shui",B:"huo",C:"mu", D:"jin", E:"tu"},
+  Q8:{A:"huo",B:"mu", C:"tu", D:"jin", E:"shui"},
+  Q9:{A:"huo",B:"mu", C:"tu", D:"jin", E:"shui"},
+  Q10:{A:"huo",B:"mu",C:"tu", D:"jin", E:"shui"}
 };
 
-// ===== 讀取所有回答，計分 =====
-let answeredCount = 0;
+// ========= 五行圖片（換成你的正式網址即可） =========
+const imgMap = {
+  mu:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/WOOD.png",
+  huo:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/FIRE.png",
+  tu:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/EARTH.png",
+  jin:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/METAL.png",
+  shui:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/WATER.png",
+  neutral:"https://ggeggsong.com/wordpress/wp-content/uploads/2025/12/NEUTRAL.png"
+};
 
-for (let i = 1; i <= 10; i++) {
-  let q = "Q" + i;
-  let ans = getParam(q);
-
-  if (!ans || ans === "X") continue; // X = 我不知道
-  answeredCount++;
-
-  let key = mapping[q][ans];
+// ========= 計算分數 =========
+for (let i=1; i<=10; i++) {
+  let ans = getParam("Q"+i);
+  if (!ans || ans==="X") continue;
+  let key = mapping["Q"+i][ans];
   if (key) score[key]++;
 }
 
-// ===== 依分數決定類型 =====
-let resultType = "";
-let description = "";
-
+// ========= 找最高分 =========
 let sorted = Object.entries(score).sort((a,b)=>b[1]-a[1]);
+let topName = sorted[0][0];
+let topScore = sorted[0][1];
 
-// 全部都是我不知道（全部 0 分）
-if (sorted[0][1] === 0) {
-  resultType = "中性工程師";
-  description = "你目前偏向多方探索型，沒有明顯的工程屬性特徵，代表你有機會往任何方向發展！";
-} else {
-  const mapNames = {
-    mu:"木系工程師（思考型）",
-    huo:"火系工程師（行動型）",
-    tu:"土系工程師（穩定型）",
-    jin:"金系工程師（結構型）",
-    shui:"水系工程師（彈性型）"
-  };
+// ========= 中性條件（最高分 ≤ 1 → 中性） =========
+let finalKey = (topScore <= 1) ? "neutral" : topName;
 
-  resultType = mapNames[sorted[0][0]];
+// ========= 類型名稱 =========
+const resultNames = {
+  mu: "木系工程師（思考型）",
+  huo: "火系工程師（行動型）",
+  tu: "土系工程師（穩定型）",
+  jin: "金系工程師（結構型）",
+  shui: "水系工程師（彈性型）",
+  neutral: "中性工程師"
+};
 
-  // ===== 各屬性描述 =====
-  const descMap = {
-    mu:"你偏向思考型工程師，會先理解原理再動手，追求知識深度。",
-    huo:"你偏向行動派工程師，動手做比什麼都重要，邁開腳步就會前進。",
-    tu:"你偏向穩定派工程師，注重流程、可靠度與可預測性。",
-    jin:"你偏向結構派工程師，喜歡整理架構、拆分模組、規劃系統。",
-    shui:"你偏向彈性派工程師，能迅速適應需求變化並找到新的解法。"
-  };
+// ========= ★ 最新、完整五行敘述（你要求的版本 ★） =========
+const resultDesc = {
 
-  description = descMap[sorted[0][0]];
-}
+  mu:`你是「木系－思考型」工程師  
+你的邏輯深、理解力強，凡事會想清楚再下手。  
+你不喜歡盲目亂試，而是偏好拆解問題、研究底層運作方式。  
 
-// ===== 顯示結果 =====
-document.getElementById("loading").style.display = "none";
-document.getElementById("result-box").style.display = "block";
-document.getElementById("share-section").style.display = "block";
+✨ 適合領域：  
+・演算法、AI/ML  
+・韌體底層  
+・後端架構  
+・技術研究員  
 
-document.getElementById("result-title").innerText = resultType;
-document.getElementById("result-desc").innerText = description;
+你在需要深度理解、精準判斷的領域能發光發熱。`,
 
-// ===== 分享按鈕 =====
+  huo:`你是「火系－行動型」工程師  
+你動作快、敢衝、不怕錯，能在混亂中迅速做出成果。  
+你是團隊推進器，只要你在，進度就會動起來。  
+
+✨ 適合領域：  
+・前端、App  
+・快速原型開發  
+・SRE / 實作密集任務  
+・Startup 團隊  
+
+你的行動力會成為專案的核心動能。`,
+
+  tu:`你是「土系－穩定型」工程師  
+你做事仔細、有耐心，最適合處理需要高穩定度的工作。  
+你可靠、穩定、有紀律，是專案品質的守門員。  
+
+✨ 適合領域：  
+・韌體量產  
+・後端維運  
+・QA / 自動化測試  
+・系統管理  
+
+你的強項是讓所有系統「一直好好的運作」。`,
+
+  jin:`你是「金系－結構型」工程師  
+你擅長規劃架構、制定標準、拆解模組。  
+你的腦袋像系統地圖，能看到整體結構如何組合。  
+
+✨ 適合領域：  
+・後端架構師  
+・資料庫工程師  
+・大型系統設計  
+・技術領導 / Tech Lead  
+
+你特別適合做「把混亂變成秩序」的工作。`,
+
+  shui:`你是「水系－彈性型」工程師  
+你的適應力最強，思維流動、不僵化。  
+遇到問題時，你能快速轉換策略、找到新的解法。  
+
+✨ 適合領域：  
+・全端工程師  
+・DevOps  
+・技術支援  
+・跨系統整合 / 顧問工程師  
+
+你是在變動世界中最萬用、最難取代的工程師。`,
+
+  neutral:`你是「中性工程師」  
+你的分數分布平均，沒有明顯偏向。  
+代表你具備多向潛力，是可塑性最高的一群。
+
+✨ 適合領域：  
+・跨領域工程師  
+・初階工程師  
+・技術 PM  
+・探索者型角色  
+
+你可以往任何方向發展，是最自由的一群。`
+};
+
+// ========= 顯示結果 =========
+document.getElementById("loading").style.display="none";
+document.getElementById("result-box").style.display="block";
+document.getElementById("share-section").style.display="block";
+
+document.getElementById("result-img").src = imgMap[finalKey];
+document.getElementById("result-title").innerText = resultNames[finalKey];
+document.getElementById("result-desc").innerText = resultDesc[finalKey];
+
+// ========= 顯示分數 =========
+document.getElementById("score-text").innerText =
+  `你的分數：木 ${score.mu} ・ 火 ${score.huo} ・ 土 ${score.tu} ・ 金 ${score.jin} ・ 水 ${score.shui}`;
+
+// ========= 分享按鈕 =========
 document.getElementById("fb-share").onclick = () => {
-  let url = encodeURIComponent(window.location.href);
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}`, "_blank");
 };
 
 document.getElementById("line-share").onclick = () => {
-  let url = encodeURIComponent(window.location.href);
-  window.open(`https://social-plugins.line.me/lineit/share?url=${url}`, "_blank");
+  window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(location.href)}`, "_blank");
+};
+
+// ========= 下載圖片 =========
+document.getElementById("download-img").onclick = () => {
+  let a = document.createElement("a");
+  a.href = imgMap[finalKey];
+  a.download = resultNames[finalKey] + ".png";
+  a.click();
 };
 </script>
+
 		</div>
 
 		
