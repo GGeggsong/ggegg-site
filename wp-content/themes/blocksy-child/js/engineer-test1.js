@@ -8,31 +8,18 @@ document.addEventListener("DOMContentLoaded", function () {
     form.addEventListener("submit", function (e) {
         e.preventDefault();
 
-        // 五行計分（A〜E）
-        let scores = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+        // 組 URL 參數
+        let query = [];
 
         for (let i = 1; i <= 10; i++) {
             const selected = document.querySelector(`input[name="Q${i}"]:checked`);
-            if (selected) {
-                scores[selected.value]++;
-            }
+            let val = selected ? selected.value : "X"; // X = 我不知道
+            query.push(`Q${i}=${val}`);
         }
 
-        // 取最高
-        let result = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+        const finalURL = "https://ggeggsong.com/engineer-test1-result/?" + query.join("&");
 
-        // A〜E → 五行
-        const typeMap = {
-            A: "wood",
-            B: "fire",
-            C: "earth",
-            D: "metal",
-            E: "water"
-        };
-
-        let finalType = typeMap[result] || "neutral";
-
-        // 跳轉到結果頁
-        window.location.href = `https://ggeggsong.com/engineer-test1-result/?type=${finalType}`;
+        console.log("跳轉 URL =", finalURL);  // <==== 你要看的就在這
+        window.location.href = finalURL;
     });
 });
