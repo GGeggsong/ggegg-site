@@ -44,12 +44,40 @@ const resetTurnstile = () => {
 	})
 }
 
+const integrateGoogleSignIn = () => {
+	if (!window.google || !google.accounts || !google.accounts.id) {
+		return
+	}
+
+	const maybeButtons = document.querySelectorAll(
+		'.googlesitekit-sign-in-with-google__frontend-output-button'
+	)
+
+	if (!maybeButtons.length) {
+		return
+	}
+
+	maybeButtons.forEach((button) => {
+		// move button to after login-submit
+		const loginSubmit = button
+			.closest('form')
+			.querySelector('.login-submit')
+
+		if (loginSubmit) {
+			loginSubmit.insertAdjacentElement('afterend', button)
+		}
+
+		google.accounts.id.renderButton(button, {})
+	})
+}
+
 const integrations = () => {
 	if (window.anr_onloadCallback) {
 		window.anr_onloadCallback()
 	}
 
 	resetTurnstile()
+	integrateGoogleSignIn()
 
 	if (window.Dokan_Vendor_Registration) {
 		window.Dokan_Vendor_Registration.init()

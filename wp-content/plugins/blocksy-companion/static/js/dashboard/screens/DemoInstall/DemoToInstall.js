@@ -59,10 +59,10 @@ const DemoToInstall = ({ location, navigate }) => {
 
 	const configurationSteps = [
 		'modify_demo',
-		'child_theme',
+		// 'child_theme',
 		'builder',
-		'plugins',
 		'content',
+		'plugins',
 		'installer',
 	].filter((step) => {
 		if (!currentDemo) {
@@ -123,6 +123,8 @@ const DemoToInstall = ({ location, navigate }) => {
 	})
 
 	const stepName = configurationSteps[currentConfigurationStep]
+	const isLastConfigStep =
+		currentConfigurationStep === configurationSteps.indexOf('installer') - 1
 
 	useEffect(() => {
 		if (!properDemoName) return
@@ -338,7 +340,7 @@ const DemoToInstall = ({ location, navigate }) => {
 							<button
 								className="ct-demo-btn demo-main-btn"
 								disabled={
-									stepName === 'content' &&
+									isLastConfigStep &&
 									getStepsForDemoConfiguration({
 										demoConfiguration,
 										pluginsStatus,
@@ -353,7 +355,7 @@ const DemoToInstall = ({ location, navigate }) => {
 										)
 									)
 								}}>
-								{stepName === 'content'
+								{isLastConfigStep
 									? __('Install', 'blocksy-companion')
 									: __('Next', 'blocksy-companion')}
 							</button>

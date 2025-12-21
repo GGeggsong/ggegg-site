@@ -66,7 +66,7 @@ const Edit = ({
 						'--theme-form-field-border-radius': `${
 							typeof radius === 'string'
 								? radius
-								: `${radius.topLeft} ${radius.topRight} ${radius.bottomLeft} ${radius.bottomRight}`
+								: radius.topLeft || '0px'
 						}`,
 				  }
 				: {}),
@@ -127,6 +127,7 @@ const Edit = ({
 			</InspectorControls>
 
 			<InspectorControls group="styles">
+				<div className="blocksy-options-hide-border-unlink" />
 				<ColorsPanel
 					label={__('Input Font Color', 'blocksy-companion')}
 					resetAll={() => {

@@ -12,6 +12,37 @@ import { colorsDefaults } from './colors'
 export const options = getOptionsForBlock('newsletter')
 export const defaultAttributes = getAttributesFromOptions(options)
 
+addFilter(
+	'editor.BlockEdit',
+	'custom/removeUnlinkBorderRadius',
+	function (BlockEdit) {
+		return function (props) {
+			if (!props || !props.name || props.name !== 'blocksy/newsletter') {
+				return <BlockEdit {...props} />
+			}
+
+			if (props.attributes?.style?.border?.radius) {
+				const radiusValues = Object.values(
+					props.attributes.style.border.radius
+				)
+
+				const differentValue = radiusValues.find(
+					(value) => value !== radiusValues[0]
+				)
+
+				props.attributes.style.border.radius = {
+					topLeft: differentValue || radiusValues[0],
+					topRight: differentValue || radiusValues[0],
+					bottomRight: differentValue || radiusValues[0],
+					bottomLeft: differentValue || radiusValues[0],
+				}
+			}
+
+			return <BlockEdit {...props} />
+		}
+	}
+)
+
 registerBlockType('blocksy/newsletter', {
 	apiVersion: 3,
 	title: __('Newsletter Controls', 'blocksy-companion'),

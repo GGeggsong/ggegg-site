@@ -19,7 +19,7 @@ const DemosList = () => {
 	const { demos_list } = useContext(DemosContext)
 
 	return (
-		<ul>
+		<ul className="ct-demo-list">
 			{demos_list
 				.filter(
 					(v, i) =>

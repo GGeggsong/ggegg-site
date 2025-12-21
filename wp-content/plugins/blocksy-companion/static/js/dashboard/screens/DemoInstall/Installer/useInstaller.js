@@ -15,23 +15,11 @@ import { DemosContext } from '../../DemoInstall'
 
 import { sprintf, __ } from 'ct-i18n'
 import { getNameForPlugin } from '../Wizzard/Plugins'
-
-import { computeRequestsForDemoContent } from './contentCalculation'
-
-export const prepareUrl = (query_string) => {
-	const params = new URLSearchParams({
-		nonce: ctDashboardLocalizations.dashboard_actions_nonce,
-		wp_customize: 'on',
-		...query_string,
-	})
-
-	return `${ctDashboardLocalizations.ajax_url}?${params.toString()}`
-}
-
-const GENERIC_MESSAGE = __(
-	"Unfortunately, your hosting configuration doesn't meet the minimum requirements for importing a starter site.",
-	'blocksy-companion'
-)
+import {
+	prepareUrl,
+	performRequestWithExponentialBackoff,
+	GENERIC_MESSAGE,
+} from './helpers'
 
 const listener = (e) => {
 	e.preventDefault()
@@ -140,7 +128,7 @@ const getInitialStepsDescriptors = (params) => {
 		erase_content: {
 			requests: [
 				{
-					title: __('Erase content', 'blocksy-companion'),
+					title: __('Preparing content', 'blocksy-companion'),
 
 					params: {
 						action: 'blocksy_demo_erase_content',
@@ -171,12 +159,34 @@ const getInitialStepsDescriptors = (params) => {
 						action: 'blocksy_demo_install_widgets',
 						demo_name: currentDemoWithVariation,
 					},
+
+					cleanup: {
+						params: {
+							action: 'blocksy_demo_erase_content',
+							to_erase: 'widgets',
+						},
+					},
 				},
 			],
 		},
 
 		content: {
-			requests: computeRequestsForDemoContent(params),
+			requests: [
+				{
+					title: __('Import content', 'blocksy-companion'),
+					params: {
+						action: 'blocksy_demo_install_content',
+						demo_name: currentDemoWithVariation,
+					},
+
+					cleanup: {
+						params: {
+							action: 'blocksy_demo_erase_content',
+							to_erase: 'content',
+						},
+					},
+				},
+			],
 		},
 
 		install_finish: {
@@ -252,13 +262,24 @@ export const useInstaller = (demoConfiguration) => {
 				demoContent,
 			})
 
-			const totalRequests = stepsForConfiguration.reduce((acc, step) => {
-				return acc + stepsDescriptors[step].requests.length
-			}, 0)
+			const totalSteps = stepsForConfiguration.length
 
-			let processedRequests = 0
+			let processedSteps = 0
 
 			let requestsPayload = {}
+
+			const demoInstallFinish = (success, errorMessage = null) => {
+				console.timeEnd('Blocksy:Dashboard:DemoInstall')
+
+				if (success) {
+					setIsCompleted(true)
+				} else {
+					setIsError(errorMessage)
+				}
+
+				setInstallerBlockingReleased(true)
+				window.removeEventListener('beforeunload', listener)
+			}
 
 			for (const step of stepsForConfiguration) {
 				const stepDescriptor = stepsDescriptors[step]
@@ -270,63 +291,36 @@ export const useInstaller = (demoConfiguration) => {
 				for (const request of stepDescriptor.requests) {
 					setLastMessage(request.title)
 
-					const response = await fetch(prepareUrl(request.params), {
-						method: 'POST',
+					const isContentRequest =
+						request.params.action === 'blocksy_demo_install_content'
 
-						headers: {
-							'Content-Type': 'application/json',
-						},
-
-						body: JSON.stringify({
+					try {
+						const result = await performRequestWithExponentialBackoff(
+							request,
 							requestsPayload,
-							...(request.body || {}),
-						}),
-					})
-
-					if (response.status !== 200) {
-						setIsError(GENERIC_MESSAGE)
-						break
-					}
-
-					const body = await response.json()
-
-					if (!body) {
-						setIsError(GENERIC_MESSAGE)
-						break
-					}
-
-					if (!body.success) {
-						setIsError(
-							body.data && body.data.message
-								? body.data.message
-								: GENERIC_MESSAGE
+							isContentRequest
+								? {
+										strategy: 'sse',
+										onStatus: (statusMessage) => {
+											setLastMessage(statusMessage)
+										},
+									}
+								: {}
 						)
 
-						break
+						requestsPayload = result.requestsPayload
+					} catch (e) {
+						demoInstallFinish(false, e.message)
+						return
 					}
+				}
 
-					if (
-						body.data &&
-						body.data != null &&
-						body.data.constructor.name === 'Object'
-					) {
-						requestsPayload = {
-							...requestsPayload,
-							...body.data,
-						}
-					}
+				processedSteps++
 
-					processedRequests++
+				setProgress((processedSteps / totalSteps) * 100)
 
-					setProgress((processedRequests / totalRequests) * 100)
-
-					if (totalRequests === processedRequests) {
-						console.timeEnd('Blocksy:Dashboard:DemoInstall')
-
-						setIsCompleted(true)
-						setInstallerBlockingReleased(true)
-						window.removeEventListener('beforeunload', listener)
-					}
+				if (totalSteps === processedSteps) {
+					demoInstallFinish(true)
 				}
 			}
 		},

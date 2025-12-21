@@ -38,8 +38,8 @@ const Progress = ({ lastMessage, progress }) => {
 			</p>
 
 			<div className="ct-progress-info">
-				{lastMessage}
-				<span>{Math.round(progress)}%</span>
+				<span className="ct-progress-label">{lastMessage}</span>
+				<span className="ct-progress-counter">{Math.round(progress)}%</span>
 			</div>
 
 			<div

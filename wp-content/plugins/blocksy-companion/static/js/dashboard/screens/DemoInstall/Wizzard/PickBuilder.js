@@ -85,6 +85,7 @@ const PickBuilder = ({ demoConfiguration, setDemoConfiguration, style }) => {
 							})
 							.map(({ builder, plugins }) => (
 								<li
+									key={builder}
 									className={classnames({
 										active:
 											builder ===
