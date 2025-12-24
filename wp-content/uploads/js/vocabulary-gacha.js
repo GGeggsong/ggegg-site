@@ -147,7 +147,7 @@ window.loadPool = function (type) {
       pool = parseCsv(text);
 
       renderTable();
-      setStatus("已載入 " + pool.length + " 筆（" + (type === "lunch" ? "午餐" : "消夜") + "球池）");
+      setStatus("已載入 " + pool.length + " 筆（" + (type === "lunch" ? "午餐" : "宵夜") + "球池）");
     })
     .catch(err => {
       console.error(err);
