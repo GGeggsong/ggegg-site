@@ -17,7 +17,7 @@
 img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 /*# sourceURL=wp-img-auto-sizes-contain-inline-css */
 </style>
-<link rel="stylesheet" id="blocksy-dynamic-global-css" href="/wp-content/uploads/blocksy/css/global.css?ver=99738" media="all">
+<link rel="stylesheet" id="blocksy-dynamic-global-css" href="/wp-content/uploads/blocksy/css/global.css?ver=68819" media="all">
 <link rel="stylesheet" id="ugb-style-css-css" href="/wp-content/plugins/stackable-ultimate-gutenberg-blocks/dist/frontend_blocks.css?ver=3.19.5" media="all">
 <style id="ugb-style-css-inline-css">
 :root {--stk-block-width-default-detected: 1290px;}
@@ -75,6 +75,28 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 .blockslider-pagination.blockslider-pagination-square span {
 	width: 45px !important;
 	margin: 5px 8px !important;
+}
+
+/* 單字組縮圖模糊 */
+.voca-blur {
+  filter: blur(6px);
+  transition: filter 0.3s ease;
+}
+
+/* hover 顯示清楚 */
+.voca-blur:hover {
+  filter: blur(0);
+}
+
+.chain-form-wrap {
+  max-width: 520px;      /* 表單最佳閱讀寬度 */
+  margin: 0 auto;        /* 置中 */
+}
+
+.chain-form-wrap iframe {
+  width: 100%;
+  height: 520px;
+  border: none;
 }		</style>
 			</head>
 
