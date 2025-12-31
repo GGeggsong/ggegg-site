@@ -207,32 +207,30 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       font-size: 14px;
     }
 
-    /* ===== 強制 select 水平（壓 WordPress） ===== */
+    /* 強制 select 水平 */
     #songSelect, #typeSelect {
       display: inline-block !important;
       width: auto !important;
     }
 
-    /* ===== Controls ===== */
+    /* Controls */
     .controls {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-bottom: 16px;
     }
-
     .controls-row {
       display: flex !important;
       gap: 8px;
       align-items: center;
       flex-wrap: nowrap;
     }
-
     @media (max-width: 768px) {
       .controls-row { flex-wrap: wrap; }
     }
 
-    /* ===== 播放鍵強化 ===== */
+    /* 播放鍵強化 */
     #loadBtn {
       font-size: 16px;
       font-weight: 700;
@@ -243,10 +241,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       border-radius: 6px;
       cursor: pointer;
     }
-
-    #loadBtn:hover {
-      background: #245a96;
-    }
+    #loadBtn:hover { background: #245a96; }
 
     /* 其他控制鍵 */
     .controls-row button:not(#loadBtn) {
@@ -260,18 +255,16 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       line-height: 1.4;
     }
 
-    /* ===== Players ===== */
+    /* Players */
     .players {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
       margin-bottom: 16px;
     }
-
     @media (max-width: 768px) {
       .players { grid-template-columns: 1fr; }
     }
-
     .player {
       background: #000;
       position: relative;
@@ -279,7 +272,6 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       border-radius: 8px;
       overflow: hidden;
     }
-
     .player iframe {
       position: absolute;
       inset: 0;
@@ -288,54 +280,34 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       border: 0;
     }
 
-    /* ===== 下方區塊 ===== */
-    .sections {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr 1fr;
-      gap: 12px;
-    }
-
-    @media (max-width: 900px) {
-      .sections { grid-template-columns: 1fr; }
-    }
-
-    .section {
-      padding: 12px;
-      background: #fff;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-    }
-
-    .section b {
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .list {
-      max-height: 240px;
-      overflow: auto;
-      border: 1px solid #eee;
-      padding: 6px;
-    }
-
-    .item.active {
-      background: #eef;
-      font-weight: bold;
-    }
-
-    .inline {
+    /* 歌曲按鈕列（可選） */
+    #songList {
       display: flex;
-      gap: 6px;
-      align-items: center;
       flex-wrap: wrap;
-      margin-bottom: 6px;
+      gap: 6px;
     }
-
-    .badge {
-      font-size: 12px;
-      border: 1px solid #aaa;
-      padding: 2px 6px;
+    #songList .song-btn {
+      padding: 6px 10px;
+      font-size: 13px;
+      border: 1px solid #ddd;
       border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+    #songList .song-btn:hover { background: #f3f3f3; }
+
+    /* offset 顯示好看一點（可刪） */
+    #offsetDisplay {
+      padding: 2px 8px;
+      background: #eee;
+      border-radius: 999px;
+      min-width: 44px;
+      text-align: center;
+    }
+    #loopBtn, #repeatOneBtn {
+      white-space: normal;
+      line-height: 1.2;
+      text-align: center;
     }
   </style>
 
@@ -344,56 +316,25 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 
 <h1>🎧 聽歌學單字 <small>Learn Vocabulary with Music</small></h1>
 
-<!-- ===== 控制區 ===== -->
+<!-- 控制區 -->
 <div class="controls">
-
-  <!-- 選歌 / 詞性 -->
   <div class="controls-row">
     <select id="songSelect"></select>
-
     <select id="typeSelect">
       <option value="noun">名詞（Noun）</option>
       <option value="verb">動詞（Verb）</option>
       <option value="adj">形容詞（Adjective）</option>
     </select>
   </div>
+  <!-- 可選的歌曲按鈕列，不需要可刪除 -->
+  <div id="songList"></div>
 </div>
 
-
-
-<!-- ===== 下方三欄 ===== -->
-<div class="sections">
-
-  <div class="section">
-    <b>🎵 目前播放清單（Now Playing Playlist）</b>
-    <div id="nowPlaylistName"></div>
-    <div id="nowPlaylistList" class="list"></div>
-  </div>
-
-  <div class="section">
-    <b>我的清單（My Playlists）</b>
-    <div class="inline">
-      <select id="playlistSelect"></select>
-      <button id="loadPlaylistBtn">載入（Load）</button>
-      <button id="deletePlaylistBtn">刪除（Delete）</button>
-    </div>
-  </div>
-
-  <div class="section">
-    <b>建立播放清單（Create Playlist）</b>
-    <div class="inline">
-      <input id="playlistName" placeholder="清單名稱 / Playlist name">
-      <button id="savePlaylistBtn">存成清單（Save）</button>
-    </div>
-    <div id="songChecklist" class="list"></div>
-  </div>
-
-</div>
 <div class="hint">
   左：原始 MV（Original MV）｜右：無聲單字影片（Silent Vocabulary Video）
 </div>
 
-<!-- ===== 播放器 ===== -->
+<!-- 播放器 -->
 <div class="players">
   <div class="player">
     <iframe id="mvPlayer" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -402,22 +343,36 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     <iframe id="vocabPlayer" allow="autoplay; encrypted-media" allowfullscreen></iframe>
   </div>
 </div>
-  <!-- 播放控制 -->
-  <div class="controls-row">
-    <button id="loadBtn">▶ 播放（Play）按兩次 (twice click)!</button>
-    <button id="prevBtn">上一首（Prev）</button>
-    <button id="nextBtn">下一首（Next）</button>
-    <button id="loopBtn">循環：關（Loop Off）</button>
-  </div>
 
-  <!-- 播放說明 -->
-  <div class="play-hint">
-    ▶ 播放說明：第一次點擊 → 載入影片；第二次點擊 → 同步播放<br>
-    ▶ How to play: 1st click → Load videos / 2nd click → Play together
-  </div>
+<!-- 播放控制 -->
+<div class="controls-row">
+  <button id="loadBtn">▶ 播放（Play）按兩次 (twice click)!</button>
+  <button id="pauseBtn">⏸ 暫停（Pause）</button>
 
+  <button id="syncBtn">🔄 同步（Sync）</button>
+  <button id="offsetMinusBtn">-0.5s</button>
+  <span id="offsetDisplay"></span>
+  <button id="offsetPlusBtn">+0.5s</button>
+
+  <button id="prevBtn">上一首（Prev）</button>
+  <button id="nextBtn">下一首（Next）</button>
+
+  <!-- 新增：單曲循環 -->
+  <button id="repeatOneBtn">單曲循環：關（Repeat One: Off）</button>
+  <!-- 既有：整體循環 -->
+  <button id="loopBtn">整體循環：關（Repeat All: Off）</button>
+</div>
+
+<!-- 播放說明 -->
+<div class="play-hint">
+  ▶ 播放說明：第一次點擊 → 載入影片；第二次點擊 → 同步播放<br>
+  ▶ How to play: 1st click → Load videos / 2nd click → Play together
+</div>
+
+<!-- 載入 YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+<!-- 主程式 -->
 <script src="/wp-content/uploads/js/voca-song.js"></script>
-
 
 
 		</div>

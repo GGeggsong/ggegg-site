@@ -9,48 +9,62 @@ const SHEET_CSV_URL =
 ========================= */
 const songSelect = document.getElementById("songSelect");
 const typeSelect = document.getElementById("typeSelect");
+const songList = document.getElementById("songList"); // 若頁面有一排按鈕的容器
 
 const loadBtn = document.getElementById("loadBtn");
+const pauseBtn = document.getElementById("pauseBtn");
+const syncBtn = document.getElementById("syncBtn");
+const timeBtn = document.getElementById("timeBtn"); // 顯示左邊時間
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const loopBtn = document.getElementById("loopBtn");
+const repeatOneBtn = document.getElementById("repeatOneBtn");
+// 同步偏移控制（可選）
+const offsetPlusBtn = document.getElementById("offsetPlusBtn");
+const offsetMinusBtn = document.getElementById("offsetMinusBtn");
+const offsetDisplay = document.getElementById("offsetDisplay");
 
-const mvFrame = document.getElementById("mvPlayer");
+let mvFrame = document.getElementById("mvPlayer");
 const vocabFrame = document.getElementById("vocabPlayer");
 
-const checklistEl = document.getElementById("songChecklist");
-const playlistNameInput = document.getElementById("playlistName");
-const savePlaylistBtn = document.getElementById("savePlaylistBtn");
+/* =========================
+   Optional YouTube API player (僅用來讀取時間，不改變原本播放流程)
+========================= */
+let ytReady = false;
+let mvPlayerObj = null;
+let mvReady = false;
+let pendingMvId = null; // 下一個要顯示在左邊的影片ID（只用 API 切換，不換 src）
+let syncOffset = 0; // 右邊延遲秒數（初始 0.5s）
 
-const playlistSelect = document.getElementById("playlistSelect");
-const loadPlaylistBtn = document.getElementById("loadPlaylistBtn");
-const deletePlaylistBtn = document.getElementById("deletePlaylistBtn");
+// 這個 flag：當 iframe 已載好，但 API 還沒 ready 時，先記起來等 API ready 再建 player
+let pendingMvPlayerInit = false;
 
-const nowPlaylistNameEl = document.getElementById("nowPlaylistName");
-const nowPlaylistListEl = document.getElementById("nowPlaylistList");
+// debug interval（每秒 log 左側時間）
+let timeLogInterval = null;
+
+// 確保 iframe_api 有載入（不要求你改 HTML）
+(() => {
+  try {
+    if (window.YT && window.YT.Player) return;
+    const exists = document.querySelector('script[src*="youtube.com/iframe_api"]');
+    if (exists) return;
+    const s = document.createElement("script");
+    s.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(s);
+  } catch {}
+})();
 
 /* =========================
    State
 ========================= */
 let songs = [];
-let activePlaylist = null;       // {id,name,items:[{song_id,type}],index}
-let loopEnabled = false;
-
-// 「手動模式」：true = 用上面的 songSelect/typeSelect
-//              false = 用 activePlaylist
-let manualMode = true;
-
-// 兩段式：同一首同一詞性，只需要「載入一次」
-// 第二次按播放才 postMessage play
-let loadedKey = null;
+let currentIndex = 0;
+let loopEnabled = false; // repeat all
+let repeatOneEnabled = false; // repeat one
+let loadedKey = null; // 兩段式：同一首同詞性只需載入一次
 let loadedOnceForKey = false;
-
-/* =========================
-   localStorage keys
-========================= */
-const LS_PLAYLISTS = "voca_song_playlists";
-const LS_ACTIVE = "voca_song_active";
 const LS_LOOP = "voca_song_loop";
+const LS_REPEAT_ONE = "voca_song_repeat_one";
 
 /* =========================
    Labels (Bilingual)
@@ -58,7 +72,7 @@ const LS_LOOP = "voca_song_loop";
 const TYPE_LABEL = {
   noun: "名詞 / Noun",
   verb: "動詞 / Verb",
-  adj:  "形容詞 / Adjective",
+  adj: "形容詞 / Adjective",
 };
 
 /* =========================
@@ -75,16 +89,19 @@ function parseCSV(text) {
     const n = text[i + 1];
 
     if (c === '"' && inQuotes && n === '"') {
-      cell += '"'; i++;
+      cell += '"';
+      i++;
     } else if (c === '"') {
       inQuotes = !inQuotes;
     } else if (c === "," && !inQuotes) {
-      row.push(cell); cell = "";
+      row.push(cell);
+      cell = "";
     } else if ((c === "\n" || c === "\r") && !inQuotes) {
       if (c === "\r" && n === "\n") i++;
       row.push(cell);
       if (row.length > 1) rows.push(row);
-      row = []; cell = "";
+      row = [];
+      cell = "";
     } else {
       cell += c;
     }
@@ -97,10 +114,10 @@ function parseCSV(text) {
 }
 
 function rowsToObjects(rows) {
-  const header = rows[0].map(h => (h || "").trim());
-  return rows.slice(1).map(r => {
+  const header = rows[0].map((h) => (h || "").trim());
+  return rows.slice(1).map((r) => {
     const o = {};
-    header.forEach((h, i) => o[h] = (r[i] || "").trim());
+    header.forEach((h, i) => (o[h] = (r[i] || "").trim()));
     return o;
   });
 }
@@ -128,16 +145,21 @@ function getYouTubeId(url) {
 function buildEmbedSrc(videoId, { mute = false } = {}) {
   if (!videoId) return "";
   const base = `https://www.youtube.com/embed/${videoId}`;
+  const origin = window.location?.origin || "";
   const params = new URLSearchParams({
     enablejsapi: "1",
     playsinline: "1",
     rel: "0",
     modestbranding: "1",
+    ...(origin ? { origin } : {}),
   });
   if (mute) params.set("mute", "1");
   return `${base}?${params.toString()}`;
 }
 
+/* =========================
+   Player controls (postMessage)
+========================= */
 function postPlay(iframeEl) {
   try {
     iframeEl.contentWindow.postMessage(
@@ -147,139 +169,243 @@ function postPlay(iframeEl) {
   } catch {}
 }
 
+function postPause(iframeEl) {
+  try {
+    iframeEl.contentWindow.postMessage(
+      JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
+      "*"
+    );
+  } catch {}
+}
+
+function postSeek(iframeEl, seconds = 0) {
+  try {
+    iframeEl.contentWindow.postMessage(
+      JSON.stringify({ event: "command", func: "seekTo", args: [seconds, true] }),
+      "*"
+    );
+  } catch {}
+}
+
 function playBoth() {
-  postPlay(mvFrame);
+  // 左邊：只用 API 播放（核心原則）
+  if (mvReady && mvPlayerObj && mvPlayerObj.playVideo) {
+    try { mvPlayerObj.playVideo(); } catch {}
+  }
   postPlay(vocabFrame);
 }
 
-/* =========================
-   Storage helpers
-========================= */
-function getPlaylists() {
-  return JSON.parse(localStorage.getItem(LS_PLAYLISTS) || "[]");
-}
-function savePlaylists(pls) {
-  localStorage.setItem(LS_PLAYLISTS, JSON.stringify(pls));
-}
-function saveActive() {
-  if (activePlaylist) localStorage.setItem(LS_ACTIVE, JSON.stringify(activePlaylist));
-  else localStorage.removeItem(LS_ACTIVE);
-}
-
-/* =========================
-   Render UI
-========================= */
-function renderMyPlaylists() {
-  playlistSelect.innerHTML = "";
-  const pls = getPlaylists();
-  pls.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.name;
-    playlistSelect.appendChild(opt);
-  });
-
-  if (!pls.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "（尚無清單 / No playlist）";
-    playlistSelect.appendChild(opt);
+function pauseBoth() {
+  if (mvReady && mvPlayerObj && mvPlayerObj.pauseVideo) {
+    try { mvPlayerObj.pauseVideo(); } catch {}
   }
+  postPause(vocabFrame);
 }
 
-function renderChecklist() {
-  checklistEl.innerHTML = "";
-  songs.forEach(song => {
-    const row = document.createElement("div");
-    row.className = "item";
-    row.innerHTML = `
-      <input type="checkbox" value="${song.song_id}">
-      <span>${song.song_title}</span>
-      <span class="badge">${song.lang || ""}</span>
-    `;
-    checklistEl.appendChild(row);
-  });
-}
-
-function renderNowPlaylist() {
-  nowPlaylistNameEl.textContent = "";
-  nowPlaylistListEl.innerHTML = "";
-
-  if (!activePlaylist || !activePlaylist.items?.length) {
-    nowPlaylistNameEl.textContent = "（未使用播放清單 / No active playlist）";
+function syncBoth() {
+  const t = getMvCurrentTime();
+  if (t === null) {
+    alert("無法取得左邊影片時間，請先按播放一次讓影片載入再試。");
+    console.warn("[voca-song] syncBoth: no currentTime (API not ready / mv not ready)");
     return;
   }
+  const target = Math.max(0, t - syncOffset); // 右邊慢 syncOffset 秒，避免超前
+  console.log("[voca-song] sync to left time =", t, "-> right seek =", target, "offset =", syncOffset);
 
-  nowPlaylistNameEl.textContent = activePlaylist.name;
-
-  activePlaylist.items.forEach((item, idx) => {
-    const song = songs.find(s => s.song_id === item.song_id);
-    if (!song) return;
-
-    const div = document.createElement("div");
-    div.className = "item" + (idx === activePlaylist.index ? " active" : "");
-    div.textContent = `${song.song_title} (${TYPE_LABEL[item.type] || item.type})`;
-
-    // 點現在播放清單可直接跳播
-    div.onclick = () => {
-      activePlaylist.index = idx;
-      manualMode = false;
-      saveActive();
-      loadCurrent({ resetTwoStep: true });
-    };
-
-    nowPlaylistListEl.appendChild(div);
-  });
-}
-
-function setLoopBtnText() {
-  loopBtn.textContent = loopEnabled
-    ? "循環：開（Loop: On）"
-    : "循環：關（Loop: Off）";
+  postSeek(vocabFrame, target);
 }
 
 /* =========================
-   Two-step reset
+   UI helpers
 ========================= */
+function setLoopBtnText() {
+  if (!loopBtn) return;
+  loopBtn.innerHTML = loopEnabled
+    ? "整體循環：開<br>(Repeat All: On)"
+    : "整體循環：關<br>(Repeat All: Off)";
+}
+
+function setRepeatOneBtnText() {
+  if (!repeatOneBtn) return;
+  repeatOneBtn.innerHTML = repeatOneEnabled
+    ? "單曲循環：開<br>(Repeat One: On)"
+    : "單曲循環：關<br>(Repeat One: Off)";
+}
+
 function resetTwoStep() {
   loadedKey = null;
   loadedOnceForKey = false;
 }
 
-/* =========================
-   Decide & load current
-========================= */
-function getCurrentSelection() {
-  // 手動模式：永遠以 select 為準
-  if (manualMode || !activePlaylist) {
-    const song = songs.find(s => s.song_id === songSelect.value);
-    const type = typeSelect.value;
-    return { song, type, from: "manual" };
-  }
-
-  // 播放清單模式
-  const item = activePlaylist.items[activePlaylist.index];
-  const song = songs.find(s => s.song_id === item.song_id);
-  const type = item.type;
-  return { song, type, from: "playlist" };
+function goToIndex(nextIndex, { autoPlay = false } = {}) {
+  if (!songs.length) return;
+  currentIndex = Math.max(0, Math.min(nextIndex, songs.length - 1));
+  if (songSelect) songSelect.value = songs[currentIndex].song_id;
+  loadCurrent({ resetTwoStep: true });
+  if (autoPlay) requestAutoPlayAfterSwitch();
 }
 
+function getCurrentSelection() {
+  const songBySelect = songs.find((s) => s.song_id === songSelect.value);
+  const song = songBySelect || songs[currentIndex];
+  const type = typeSelect.value;
+  return { song, type };
+}
+
+/* =========================
+   Auto play after switch
+========================= */
+let autoPlayAfterSwitch = false;
+let autoPlayTries = 0;
+let lastEndedAt = 0;
+
+function isLeftPlaying() {
+  try {
+    if (!mvReady || !mvPlayerObj || !mvPlayerObj.getPlayerState) return false;
+    return mvPlayerObj.getPlayerState() === YT.PlayerState.PLAYING;
+  } catch {
+    return false;
+  }
+}
+
+function requestAutoPlayAfterSwitch() {
+  autoPlayAfterSwitch = true;
+  autoPlayTries = 0;
+
+  const tick = () => {
+    if (!autoPlayAfterSwitch) return;
+    autoPlayTries += 1;
+
+    playBoth(); // 左邊用 API；右邊用 postMessage
+
+    if (autoPlayTries >= 6) {
+      autoPlayAfterSwitch = false;
+      return;
+    }
+    setTimeout(tick, 700);
+  };
+
+  setTimeout(tick, 300);
+}
+
+function handleLeftEnded() {
+  // 避免 ENDED 事件連續觸發
+  const now = Date.now();
+  if (now - lastEndedAt < 1200) return;
+  lastEndedAt = now;
+
+  // 單曲循環優先
+  if (repeatOneEnabled) {
+    try {
+      if (mvReady && mvPlayerObj && mvPlayerObj.seekTo) mvPlayerObj.seekTo(0, true);
+    } catch {}
+    postSeek(vocabFrame, 0);
+    requestAutoPlayAfterSwitch();
+    return;
+  }
+
+  // 整體循環：播完下一首（到尾回第一首）；關閉則播完就停
+  if (!loopEnabled) return;
+
+  if (!songs.length) return;
+  const next = currentIndex + 1 >= songs.length ? 0 : currentIndex + 1;
+  goToIndex(next, { autoPlay: true });
+}
+
+/* =========================
+   YT Player lifecycle (穩定核心)
+========================= */
+function destroyMvPlayer() {
+  // 核心原則：左邊永遠只建立一次 player，不 destroy、不替換 iframe
+  mvReady = false;
+  pendingMvPlayerInit = false;
+  if (timeLogInterval) {
+    clearInterval(timeLogInterval);
+    timeLogInterval = null;
+  }
+}
+
+function ensureLeftEmbedReady(firstMvId) {
+  // 若你的 HTML 本來就是 <iframe id="mvPlayer">，而且沒有 enablejsapi，YT 可能無法控制。
+  // 我們只允許「第一次」補一次 src（之後換歌只用 API，不再改 src）。
+  try {
+    if (!mvFrame) mvFrame = document.getElementById("mvPlayer");
+    if (!mvFrame) return;
+    if (mvFrame.tagName !== "IFRAME") return; // div 讓 YT.Player 自己建 iframe
+
+    const src = mvFrame.getAttribute("src") || "";
+    if (!src || !src.includes("enablejsapi=1")) {
+      mvFrame.setAttribute("src", buildEmbedSrc(firstMvId, { mute: false }));
+    }
+  } catch {}
+}
+
+function initMvPlayer() {
+  if (!ytReady || !window.YT || !YT.Player) {
+    // API 還沒 ready，先標記等一下建
+    pendingMvPlayerInit = true;
+    return;
+  }
+
+  // 如果已經有 player 了，就不要重建
+  if (mvPlayerObj) return;
+
+  try {
+    mvPlayerObj = new YT.Player("mvPlayer", {
+      events: {
+        onReady: () => {
+          mvReady = true;
+
+          // 若有待切換影片，這裡 cue 一次（不自動播放）
+          if (pendingMvId && mvPlayerObj && mvPlayerObj.cueVideoById) {
+            try { mvPlayerObj.cueVideoById(pendingMvId); } catch {}
+          }
+
+          // debug：每秒 log 左邊時間（你要留就留）
+          if (!timeLogInterval) {
+            timeLogInterval = setInterval(() => {
+              const t = getMvCurrentTime();
+              if (t !== null) console.log("[voca-song] mv currentTime =", t);
+            }, 1000);
+          }
+        },
+        onStateChange: (e) => {
+          if (e && e.data === YT.PlayerState.ENDED) {
+            console.log("[voca-song] left ended");
+            handleLeftEnded();
+          }
+        },
+      },
+    });
+  } catch (e) {
+    console.warn("[voca-song] YT initMvPlayer failed", e);
+  }
+}
+
+/* =========================
+   Apply iframes
+========================= */
 function applyIframes(song, type) {
   const mvId = getYouTubeId(song.mv_url);
-
   const vocabUrl =
-    type === "noun" ? song.noun_video :
-    type === "verb" ? song.verb_video :
-    song.adj_video;
-
+    type === "noun"
+      ? song.noun_video
+      : type === "verb"
+      ? song.verb_video
+      : song.adj_video;
   const vocabId = getYouTubeId(vocabUrl);
 
-  // 組 key，讓兩段式只針對「同一首+同詞性」
   const key = `${song.song_id}__${type}__${mvId}__${vocabId}`;
 
-  // 只要 key 變了，就視為換歌/換詞性 → 需要重新兩段式
   if (key !== loadedKey) {
-    mvFrame.src = buildEmbedSrc(mvId, { mute: false });
+    // 左邊核心原則：永遠只建立一次 player；換歌只用 API cueVideoById，不換 src
+    pendingMvId = mvId;
+    ensureLeftEmbedReady(mvId);
+    initMvPlayer();
+    if (mvReady && mvPlayerObj && mvPlayerObj.cueVideoById) {
+      try { mvPlayerObj.cueVideoById(mvId); } catch (e) { console.warn("[voca-song] cueVideoById failed", e); }
+    }
+
     vocabFrame.src = buildEmbedSrc(vocabId, { mute: true });
 
     loadedKey = key;
@@ -291,14 +417,93 @@ function applyIframes(song, type) {
 
 function loadCurrent({ resetTwoStep: doReset = false } = {}) {
   if (doReset) resetTwoStep();
-
   const { song, type } = getCurrentSelection();
   if (!song) return;
-
   applyIframes(song, type);
+}
 
-  // 更新右側「目前播放清單」高亮
-  renderNowPlaylist();
+/* =========================
+   YouTube IFrame API callback
+========================= */
+function onYouTubeIframeAPIReady() {
+  ytReady = true;
+
+  // 如果 iframe 已經換好在等 API，就補建
+  if (pendingMvPlayerInit) {
+    pendingMvPlayerInit = false;
+    initMvPlayer();
+  } else {
+    // 初次進頁面：有 pendingMvId（或左邊本來就有 src）就建一次
+    if (pendingMvId || (mvFrame && mvFrame.getAttribute && mvFrame.getAttribute("src"))) initMvPlayer();
+  }
+}
+
+// 讓 callback 在全域可被呼叫（有些 bundler / scope 會吃掉）
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+/* =========================
+   Get current time (穩定版)
+========================= */
+function getMvCurrentTime() {
+  if (!mvReady || !mvPlayerObj || !mvPlayerObj.getCurrentTime) return null;
+  const t = mvPlayerObj.getCurrentTime();
+  return isNaN(t) ? null : t;
+}
+
+/* =========================
+   Render songs (select + buttons)
+========================= */
+function renderSongSelect() {
+  if (!songSelect) return;
+  songSelect.innerHTML = "";
+  songs.forEach((song, idx) => {
+    const opt = document.createElement("option");
+    opt.value = song.song_id;
+    opt.textContent = `${song.song_title} / ${song.artist || ""}`;
+    songSelect.appendChild(opt);
+    if (idx === currentIndex) opt.selected = true;
+  });
+}
+
+function renderSongButtons() {
+  if (!songList) return;
+  songList.innerHTML = "";
+  songs.forEach((song, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "song-btn";
+    btn.textContent = `${song.song_title} / ${song.artist || ""}`;
+    btn.onclick = () => {
+      const wasPlaying = isLeftPlaying();
+      currentIndex = idx;
+      if (songSelect) songSelect.value = song.song_id;
+      loadCurrent({ resetTwoStep: true });
+      if (wasPlaying) requestAutoPlayAfterSwitch();
+    };
+    songList.appendChild(btn);
+  });
+}
+
+// 隱藏舊的播放清單相關 UI（即使頁面仍存在也不顯示）
+function hideLegacyPlaylistUI() {
+  const ids = [
+    "songChecklist",
+    "playlistName",
+    "savePlaylistBtn",
+    "playlistSelect",
+    "loadPlaylistBtn",
+    "deletePlaylistBtn",
+    "nowPlaylistName",
+    "nowPlaylistList",
+  ];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+
+  // 隱藏整個播放清單區塊（含標題）
+  const sections = document.querySelectorAll(".sections");
+  sections.forEach((sec) => (sec.style.display = "none"));
 }
 
 /* =========================
@@ -308,53 +513,81 @@ loadBtn.onclick = () => {
   const { song, type } = getCurrentSelection();
   if (!song) return;
 
-  // 第一次：載入（loadedOnceForKey=false）
-  // 第二次：同步播放
   applyIframes(song, type);
 
+  // 兩段式：第一次只載入；第二次才播放（避免自動播放限制造成你誤判）
   if (loadedOnceForKey) {
     playBoth();
   } else {
     loadedOnceForKey = true;
   }
-
-  renderNowPlaylist();
 };
 
-nextBtn.onclick = () => {
-  if (!activePlaylist || !activePlaylist.items?.length) return;
+if (pauseBtn) {
+  pauseBtn.onclick = () => pauseBoth();
+}
 
-  manualMode = false;
-  activePlaylist.index++;
+if (syncBtn) {
+  syncBtn.onclick = () => syncBoth();
+}
 
-  if (activePlaylist.index >= activePlaylist.items.length) {
-    if (!loopEnabled) {
-      activePlaylist.index = activePlaylist.items.length - 1;
+// 偏移調整按鈕
+function updateOffsetDisplay() {
+  if (offsetDisplay) offsetDisplay.textContent = syncOffset.toFixed(1) + "s";
+}
+
+if (offsetPlusBtn) {
+  offsetPlusBtn.onclick = () => {
+    syncOffset += 0.5;
+    updateOffsetDisplay();
+  };
+}
+
+if (offsetMinusBtn) {
+  offsetMinusBtn.onclick = () => {
+    syncOffset = Math.max(0, syncOffset - 0.5);
+    updateOffsetDisplay();
+  };
+}
+
+// 初始化偏移顯示
+updateOffsetDisplay();
+
+if (timeBtn) {
+  timeBtn.onclick = () => {
+    const t = getMvCurrentTime();
+    if (t === null) {
+      alert("無法取得左邊影片時間，請先按播放一次讓影片載入再試。若仍不行，請重新整理頁面。");
+      console.warn("[voca-song] left time btn: no currentTime (mv not ready)");
       return;
     }
-    activePlaylist.index = 0;
-  }
+    alert(`左邊影片目前秒數：${t.toFixed(2)}`);
+    console.log("[voca-song] left time btn =", t);
+  };
+}
 
-  saveActive();
-  loadCurrent({ resetTwoStep: true });
+nextBtn.onclick = () => {
+  if (!songs.length) return;
+  const wasPlaying = isLeftPlaying();
+  if (currentIndex + 1 >= songs.length) {
+    if (!loopEnabled) return;
+    currentIndex = 0;
+  } else {
+    currentIndex += 1;
+  }
+  goToIndex(currentIndex, { autoPlay: wasPlaying });
 };
 
 prevBtn.onclick = () => {
-  if (!activePlaylist || !activePlaylist.items?.length) return;
-
-  manualMode = false;
-  activePlaylist.index--;
-
-  if (activePlaylist.index < 0) {
-    if (!loopEnabled) {
-      activePlaylist.index = 0;
-      return;
-    }
-    activePlaylist.index = activePlaylist.items.length - 1;
+  if (!songs.length) return;
+  const wasPlaying = isLeftPlaying();
+  if (currentIndex - 1 < 0) {
+    if (!loopEnabled) return;
+    currentIndex = songs.length - 1;
+  } else {
+    currentIndex -= 1;
   }
-
-  saveActive();
-  loadCurrent({ resetTwoStep: true });
+  goToIndex(currentIndex, { autoPlay: wasPlaying });
 };
 
 loopBtn.onclick = () => {
@@ -363,89 +596,29 @@ loopBtn.onclick = () => {
   setLoopBtnText();
 };
 
-/* =========================
-   Playlist create / load / delete
-========================= */
-savePlaylistBtn.onclick = () => {
-  const checked = [...checklistEl.querySelectorAll("input[type=checkbox]:checked")];
-  if (!checked.length) {
-    alert("請勾選歌曲 / Please select at least one song");
-    return;
-  }
-
-  const type = typeSelect.value; // 以「當下詞性」存成清單
-  const items = checked.map(c => ({ song_id: c.value, type }));
-
-  const nameBase = (playlistNameInput.value || "未命名 / Untitled").trim();
-  const name = `${nameBase}（${TYPE_LABEL[type]}）`;
-
-  const pl = {
-    id: "pl_" + Date.now(),
-    name,
-    items,
-    index: 0
+if (repeatOneBtn) {
+  repeatOneBtn.onclick = () => {
+    repeatOneEnabled = !repeatOneEnabled;
+    localStorage.setItem(LS_REPEAT_ONE, JSON.stringify(repeatOneEnabled));
+    setRepeatOneBtnText();
   };
-
-  const pls = getPlaylists();
-  pls.push(pl);
-  savePlaylists(pls);
-  renderMyPlaylists();
-
-  // 直接切到這個播放清單
-  activePlaylist = pl;
-  manualMode = false;
-  saveActive();
-  loadCurrent({ resetTwoStep: true });
-};
-
-loadPlaylistBtn.onclick = () => {
-  const id = playlistSelect.value;
-  if (!id) return;
-
-  const pl = getPlaylists().find(p => p.id === id);
-  if (!pl) return;
-
-  activePlaylist = pl;
-  activePlaylist.index = 0;
-  manualMode = false;
-
-  saveActive();
-  loadCurrent({ resetTwoStep: true });
-};
-
-deletePlaylistBtn.onclick = () => {
-  const id = playlistSelect.value;
-  if (!id) return;
-
-  const pls = getPlaylists().filter(p => p.id !== id);
-  savePlaylists(pls);
-
-  // 如果刪的是目前 active，清掉 active 回手動
-  if (activePlaylist && activePlaylist.id === id) {
-    activePlaylist = null;
-    manualMode = true;
-    saveActive();
-    resetTwoStep();
-  }
-
-  renderMyPlaylists();
-  renderNowPlaylist();
-};
-
-/* =========================
-   Manual mode switch (fix your issue)
-========================= */
-function switchToManualMode() {
-  manualMode = true;
-  activePlaylist = null;
-  saveActive();
-  resetTwoStep();
-  renderNowPlaylist();
 }
 
-// 只要使用者動到選歌/詞性：保證手動模式生效（你剛說壞的點）
-songSelect.addEventListener("change", switchToManualMode);
-typeSelect.addEventListener("change", switchToManualMode);
+if (songSelect) {
+  songSelect.addEventListener("change", () => {
+    const wasPlaying = isLeftPlaying();
+    const idx = songs.findIndex((s) => s.song_id === songSelect.value);
+    if (idx >= 0) currentIndex = idx;
+    loadCurrent({ resetTwoStep: true });
+    if (wasPlaying) requestAutoPlayAfterSwitch();
+  });
+}
+
+if (typeSelect) {
+  typeSelect.addEventListener("change", () => {
+    resetTwoStep();
+  });
+}
 
 /* =========================
    Init
@@ -453,40 +626,24 @@ typeSelect.addEventListener("change", switchToManualMode);
 async function init() {
   loopEnabled = JSON.parse(localStorage.getItem(LS_LOOP) || "false");
   setLoopBtnText();
+  repeatOneEnabled = JSON.parse(localStorage.getItem(LS_REPEAT_ONE) || "false");
+  setRepeatOneBtnText();
 
   const res = await fetch(SHEET_CSV_URL);
   const text = await res.text();
   const rows = parseCSV(text);
-  songs = rowsToObjects(rows).filter(s => s.song_id);
+  songs = rowsToObjects(rows).filter((s) => s.song_id);
 
-  // songs 下拉
-  songSelect.innerHTML = "";
-  songs.forEach(song => {
-    const opt = document.createElement("option");
-    opt.value = song.song_id;
-    opt.textContent = `${song.song_title} / ${song.artist || ""}`;
-    songSelect.appendChild(opt);
-  });
+  if (!songs.length) return;
+  currentIndex = 0;
 
-  // checklist
-  renderChecklist();
+  renderSongSelect();
+  renderSongButtons();
+  hideLegacyPlaylistUI();
 
-  // playlists 下拉
-  renderMyPlaylists();
+  console.log("[voca-song] init ok", { songs: songs.length });
 
-  // restore active playlist（若有）
-  const saved = localStorage.getItem(LS_ACTIVE);
-  if (saved) {
-    try {
-      activePlaylist = JSON.parse(saved);
-      manualMode = false;
-    } catch {
-      activePlaylist = null;
-      manualMode = true;
-    }
-  }
-
-  renderNowPlaylist();
-  // 不自動載入影片（維持你「按兩次」的規則）
+  // 進頁先載入第一首（不自動播放）
+  loadCurrent({ resetTwoStep: true });
 }
 init();
