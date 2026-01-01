@@ -178,7 +178,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 			
 <div class="wp-block-stackable-columns stk-block-columns stk-block stk-125bb00" data-block-id="125bb00"><div class="stk-row stk-inner-blocks stk-block-content stk-content-align stk-125bb00-column">
 <div class="wp-block-stackable-column stk-block-column stk-column stk-block stk-106af8b" data-v="4" data-block-id="106af8b"><div class="stk-column-wrapper stk-block-column__content stk-container stk-106af8b-container stk--no-background stk--no-padding"><div class="stk-block-content stk-inner-blocks stk-106af8b-inner-blocks">
-<div class="wp-block-stackable-text stk-block-text stk-block stk-009723a" data-block-id="009723a"><p class="stk-block-text__text">播放請按兩次唷<br>第一次載入<br>第二次播放</p></div>
+<div class="wp-block-stackable-text stk-block-text stk-block stk-009723a" data-block-id="009723a"><p class="stk-block-text__text">建議用平板或電腦唷</p></div>
 </div></div></div>
 </div></div>
 
@@ -208,17 +208,36 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     }
 
     /* 強制 select 水平 */
-    #songSelect, #typeSelect {
+    #songSelect {
       display: inline-block !important;
       width: auto !important;
     }
+
+    /* 搜尋框 */
+    #songSearch {
+      width: min(360px, 100%);
+    }
+
+    /* 收藏星號（目前選歌用） */
+    #favToggleBtn {
+      width: 40px;
+      text-align: center;
+      border: 1px solid #ddd;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 6px 0;
+    }
+    #favToggleBtn:hover { background: #f3f3f3; }
 
     /* Controls */
     .controls {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .controls-row {
       display: flex !important;
@@ -251,7 +270,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     .play-hint {
       font-size: 13px;
       color: #444;
-      margin-top: 4px;
+      margin-top: 6px;
       line-height: 1.4;
     }
 
@@ -260,7 +279,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
     @media (max-width: 768px) {
       .players { grid-template-columns: 1fr; }
@@ -280,7 +299,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       border: 0;
     }
 
-    /* 歌曲按鈕列（可選） */
+    /* 快捷歌按鈕列（只顯示「我的快捷歌」） */
     #songList {
       display: flex;
       flex-wrap: wrap;
@@ -296,19 +315,332 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     }
     #songList .song-btn:hover { background: #f3f3f3; }
 
+    /* Learning mode */
+    .learning-mode {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .current-song {
+      font-size: 14px;
+      color: #222;
+      font-weight: 600;
+    }
+    .mode-tabs {
+      display: inline-flex;
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #f7f7f7;
+    }
+    .mode-tabs button {
+      border: 0;
+      background: transparent;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .mode-tabs button.active {
+      background: #2b6cb0;
+      color: #fff;
+    }
+    .mode-tabs button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     /* offset 顯示好看一點（可刪） */
     #offsetDisplay {
       padding: 2px 8px;
       background: #eee;
       border-radius: 999px;
-      min-width: 44px;
+      min-width: 52px;
       text-align: center;
     }
+
     #loopBtn, #repeatOneBtn {
       white-space: normal;
       line-height: 1.2;
       text-align: center;
     }
+
+    /* =========================
+       Playlist UI
+    ========================= */
+    .playlist-panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 0 0 16px;
+    }
+    @media (max-width: 768px) {
+      .playlist-panels { grid-template-columns: 1fr; }
+    }
+
+    .playlist-panel {
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .playlist-title {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #222;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .playlist-subtitle {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .queue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 240px;
+      overflow: auto;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .queue-item:hover { background: #f3f3f3; }
+
+    .queue-item.is-current {
+      border-color: #2b6cb0;
+      background: #ebf4ff;
+    }
+
+    .queue-item-title {
+      font-size: 13px;
+      color: #222;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .queue-item-badge {
+      font-size: 11px;
+      color: #2b6cb0;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .playlist-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    #playMyPlaylistBtn {
+      background: #2b6cb0;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-weight: 700;
+    }
+    #playMyPlaylistBtn:hover { background: #245a96; }
+
+    #openPlaylistDialogBtn {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-weight: 700;
+    }
+    #openPlaylistDialogBtn:hover { background: #f3f3f3; }
+
+    #myPlaylistNameInput {
+      width: min(260px, 100%);
+    }
+
+    .danger-btn {
+      background: #fff;
+      border: 1px solid #f3b4b4;
+      color: #b00020;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-weight: 700;
+    }
+    .danger-btn:hover { background: #fff5f5; }
+
+    .secondary-btn {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-weight: 700;
+    }
+    .secondary-btn:hover { background: #f3f3f3; }
+
+    #myPlaylistMsg {
+      margin-top: 6px;
+      color: #666;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    /* =========================
+       Dialog
+    ========================= */
+    dialog#playlistDialog {
+      width: min(860px, calc(100vw - 24px));
+      border: 1px solid #e6e6e6;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    dialog#playlistDialog::backdrop {
+      background: rgba(0,0,0,0.35);
+    }
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .dialog-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 800;
+      color: #222;
+    }
+    #closePlaylistDialogBtn {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 8px 10px;
+      font-weight: 700;
+    }
+    #closePlaylistDialogBtn:hover { background: #f3f3f3; }
+    .dialog-body {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    /* =========================
+       手機版：縮小字體/按鈕，避免爆版
+    ========================= */
+    @media (max-width: 520px) {
+      body { margin: 10px; }
+
+      h1 { font-size: 18px; }
+      .hint { font-size: 12px; margin-bottom: 8px; }
+
+      select, button, input {
+        font-size: 12px;
+        padding: 6px 8px;
+      }
+
+      .controls { gap: 8px; margin-bottom: 10px; }
+      .controls-row {
+        gap: 6px;
+        flex-wrap: wrap !important; /* 手機直接換行 */
+      }
+
+      #songSearch { width: 100%; }
+      #songSelect { width: 100% !important; }
+      #favToggleBtn { width: 38px; font-size: 16px; }
+
+      /* 學習模式區塊縮小 */
+      .learning-mode { padding: 8px 10px; gap: 8px; }
+      .current-song { font-size: 12px; }
+      .mode-tabs button { padding: 6px 10px; font-size: 12px; }
+
+      /* 控制區：主播放按鈕獨占一行，其餘自動換行 */
+      #loadBtn {
+        width: 100%;
+        font-size: 14px;
+        padding: 10px 12px;
+      }
+
+      .play-hint { font-size: 12px; line-height: 1.4; }
+
+      /* 播放清單區縮小一點 */
+      .playlist-panel { padding: 10px; }
+      .playlist-title { font-size: 13px; }
+      .playlist-subtitle { font-size: 11px; }
+      .queue-item { padding: 7px 9px; }
+      .queue-item-title { font-size: 12px; }
+      .queue-item-badge { font-size: 10px; }
+
+      /* Dialog 在手機滿寬 */
+      dialog#playlistDialog { width: calc(100vw - 16px); }
+    }
+  /* 防止任何元素撐破造成水平捲軸 */
+  * { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+
+  /* 手機版：不出水平捲軸、歌名可換行 */
+  @media (max-width: 520px) {
+    /* 任何控制列都允許換行 */
+    .controls-row { flex-wrap: wrap !important; }
+
+    /* 表單元件不要撐破 */
+    input, select, button { max-width: 100%; }
+
+    /* 下拉選單顯示用省略號（避免撐破）；歌名本體在清單/按鈕用換行 */
+    select { width: 100% !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* 歌名按鈕（我的快捷歌）允許換行、變高 */
+    #songList .song-btn {
+      white-space: normal;
+      line-height: 1.25;
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+
+    /* 播放清單的每一列：歌名允許換行，整列變高 */
+    .queue-item { align-items: flex-start; }
+    .queue-item-title {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .queue-item { padding-top: 10px; padding-bottom: 10px; }
+
+    /* 讓「控制按鈕群」不撐破：文字可換行 */
+    button { white-space: normal; line-height: 1.2; }
+  }
   </style>
 
 
@@ -316,25 +648,33 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 
 <h1>🎧 聽歌學單字 <small>Learn Vocabulary with Music</small></h1>
 
-<!-- 控制區 -->
+<!-- 歌曲選擇區：搜尋 + dropdown（只影響顯示）+ ☆/★ 收藏 -->
 <div class="controls">
   <div class="controls-row">
+    <input id="songSearch" type="text" placeholder="🔍 搜尋歌曲 / 歌手" autocomplete="off">
     <select id="songSelect"></select>
-    <select id="typeSelect">
-      <option value="noun">名詞（Noun）</option>
-      <option value="verb">動詞（Verb）</option>
-      <option value="adj">形容詞（Adjective）</option>
-    </select>
+    <button id="favToggleBtn" type="button" title="加入我的快捷歌">☆</button>
   </div>
-  <!-- 可選的歌曲按鈕列，不需要可刪除 -->
+
+  <!-- 我的快捷歌（空就顯示提示；有才顯示歌） -->
   <div id="songList"></div>
+</div>
+
+<!-- 學習模式切換區：Tab / Segmented Control -->
+<div class="learning-mode">
+  <span id="currentSong" class="current-song">🎵 當前歌曲：—</span>
+  <div id="modeTabs" class="mode-tabs" role="tablist" aria-label="Learning mode">
+    <button id="modeNoun" data-mode="noun" class="active" role="tab" aria-selected="true">名詞（Noun）</button>
+    <button id="modeVerb" data-mode="verb" role="tab" aria-selected="false">動詞（Verb）</button>
+    <button id="modeAdj" data-mode="adj" role="tab" aria-selected="false">形容詞（Adjective）</button>
+  </div>
 </div>
 
 <div class="hint">
   左：原始 MV（Original MV）｜右：無聲單字影片（Silent Vocabulary Video）
 </div>
 
-<!-- 播放器 -->
+<!-- 播放器（既有結構不動） -->
 <div class="players">
   <div class="player">
     <iframe id="mvPlayer" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -344,12 +684,14 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
   </div>
 </div>
 
-<!-- 播放控制 -->
+<!-- ✅ 播放控制（已移到影片下面） -->
 <div class="controls-row">
   <button id="loadBtn">▶ 播放（Play）按兩次 (twice click)!</button>
   <button id="pauseBtn">⏸ 暫停（Pause）</button>
 
   <button id="syncBtn">🔄 同步（Sync）</button>
+  <button id="timeBtn">🕒 取左邊時間</button>
+
   <button id="offsetMinusBtn">-0.5s</button>
   <span id="offsetDisplay"></span>
   <button id="offsetPlusBtn">+0.5s</button>
@@ -357,17 +699,91 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
   <button id="prevBtn">上一首（Prev）</button>
   <button id="nextBtn">下一首（Next）</button>
 
-  <!-- 新增：單曲循環 -->
   <button id="repeatOneBtn">單曲循環：關（Repeat One: Off）</button>
-  <!-- 既有：整體循環 -->
   <button id="loopBtn">整體循環：關（Repeat All: Off）</button>
 </div>
 
-<!-- 播放說明 -->
+<!-- ✅ 播放說明（跟著控制區一起移到影片下面） -->
 <div class="play-hint">
-  ▶ 播放說明：第一次點擊 → 載入影片；第二次點擊 → 同步播放<br>
+  ▶ 播播放說明：第一次點擊 → 載入影片；第二次點擊 → 同步播放<br>
   ▶ How to play: 1st click → Load videos / 2nd click → Play together
 </div>
+
+<!-- 播放清單 UI（在控制區下面） -->
+<div class="playlist-panels">
+  <!-- 系統播放清單 -->
+  <section class="playlist-panel" aria-label="Now Playing Queue">
+    <div class="playlist-title">
+      <span>🎶 系統播放清單（Now Playing Queue）</span>
+    </div>
+    <p class="playlist-subtitle">
+      顯示目前播放與接下來的歌曲。可直接點擊任一首跳播。
+    </p>
+
+    <ul id="nowQueueList" class="queue-list">
+      <li class="queue-item is-current" role="button" tabindex="0" aria-label="目前播放：—">
+        <span class="queue-item-title">—</span>
+        <span class="queue-item-badge">NOW</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- 我的播放清單 -->
+  <section class="playlist-panel" aria-label="My Playlist">
+    <div class="playlist-title">
+      <span>📁 我的播放清單（My Playlist）</span>
+      <button id="openPlaylistDialogBtn" type="button">✏️ 編輯</button>
+    </div>
+    <p class="playlist-subtitle">
+      先選擇清單並播放；編輯（建立/加入/移除/刪除）在小視窗完成。
+    </p>
+
+    <div class="playlist-controls">
+      <label for="myPlaylistSelect">清單：</label>
+      <select id="myPlaylistSelect" aria-label="選擇我的播放清單">
+        <option value="">（尚未選擇）</option>
+      </select>
+      <button id="playMyPlaylistBtn" type="button">▶ 播放此清單</button>
+    </div>
+  </section>
+</div>
+
+<!-- Dialog：我的播放清單編輯（小視窗） -->
+<dialog id="playlistDialog" aria-label="編輯我的播放清單">
+  <div class="dialog-header">
+    <h3 class="dialog-title">✏️ 編輯我的播放清單</h3>
+    <button id="closePlaylistDialogBtn" type="button">關閉</button>
+  </div>
+
+  <div class="dialog-body">
+
+    <!-- ✅ 小視窗：先選「要編輯的清單」（避免跟主畫面混淆） -->
+    <div class="playlist-controls">
+      <label for="dialogMyPlaylistSelect">編輯清單：</label>
+      <select id="dialogMyPlaylistSelect" aria-label="在小視窗選擇要編輯的清單">
+        <option value="">（尚未選擇）</option>
+      </select>
+    </div>
+
+    <!-- ✅ 小視窗自己選歌：搜尋 + 下拉 + 加入所選 -->
+    <div class="playlist-controls">
+      <input id="dialogSongSearch" type="text" placeholder="🔍 在小視窗搜尋歌曲 / 歌手" autocomplete="off">
+      <select id="dialogSongSelect" aria-label="在小視窗選擇歌曲"></select>
+      <button id="addSelectedToMyPlaylistBtn" type="button" class="secondary-btn">加入所選歌曲</button>
+    </div>
+
+    <div class="playlist-controls">
+      <label for="myPlaylistNameInput">新清單：</label>
+      <input id="myPlaylistNameInput" type="text" placeholder="輸入新清單名稱">
+      <button id="createMyPlaylistBtn" type="button" class="secondary-btn">＋建立清單</button>
+      <button id="deleteMyPlaylistBtn" type="button" class="danger-btn">刪除清單</button>
+    </div>
+
+    <div id="myPlaylistMsg"></div>
+
+    <div id="myPlaylistList" class="queue-list"></div>
+  </div>
+</dialog>
 
 <!-- 載入 YouTube IFrame API -->
 <script src="https://www.youtube.com/iframe_api"></script>
@@ -375,6 +791,10 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 <script src="/wp-content/uploads/js/voca-song.js"></script>
 
 
+
+
+
+<p></p>
 		</div>
 
 		
@@ -446,7 +866,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 </div></div></div><div data-row="bottom"><div class="ct-container"><div data-column="copyright">
 <div class="ct-footer-copyright" data-id="copyright">
 
-	<p>版權 © 2025 - 馬蹄刃有限公司</p></div>
+	<p>版權 © 2026 - 馬蹄刃有限公司</p></div>
 </div></div></div></footer></div>
 
 <script type="speculationrules">
