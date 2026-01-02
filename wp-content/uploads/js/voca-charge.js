@@ -7,7 +7,7 @@ import {
 } from "./voca-charge_api.js";
 
 // 版本號（避免因瀏覽器快取導致舊版 voca-charge_api.js 尚未帶出 APP_VERSION export 而整個掛掉）
-const APP_VERSION = "2026-01-02.01";
+const APP_VERSION = "2026-01-02.04";
 console.log("[voca-charge] loaded", { v: APP_VERSION });
 
 const elLetters = document.querySelector("#letters");

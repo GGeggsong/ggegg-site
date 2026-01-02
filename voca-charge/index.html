@@ -237,12 +237,9 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       margin-top: 12px;
     }
 
-    .row {
-      display: contents;
-    }
-    .header {
-      display: contents;
-    }
+    .row { display: contents; }
+    .header { display: contents; }
+
     .cell {
       padding: 8px;
       border-bottom: 1px solid #eee;
@@ -259,16 +256,13 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       font-size: 15px;
     }
 
-    .cell.img {
-      font-size: 18px;
-    }
+    .cell.img { font-size: 18px; }
 
     .empty {
       margin-top: 16px;
       opacity: .7;
     }
   </style>
-
 
 
 
@@ -286,8 +280,14 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
   <!-- 表格 -->
   <div id="list" class="table"></div>
 
-  <script type="module" src="/wp-content/uploads/js/voca-charge.js"></script>
+  <!-- 純靜態站：強制走 JSONP（不嘗試 wp-admin） -->
+  <script>
+    window.VOCA_CHARGE_MODE = "jsonp";
+  </script>
 
+  <!-- 注意：這裡的 src 請依你的靜態站實際路徑調整 -->
+  <!-- 如果你的靜態站根目錄沒有 /wordpress/ 這層，改成 /wp-content/uploads/js/voca-charge.js -->
+  <script type="module" src="/wp-content/uploads/js/voca-charge.js"></script>
 
 
 
