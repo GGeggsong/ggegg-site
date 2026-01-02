@@ -1,11 +1,10 @@
-/* Vocabulary Gacha - Stable Version (UTF-8)
-   - Load pool from Google Sheets published CSV
-   - Random pick and play YouTube Shorts embed
-   - Render pool table + manual play
-*/
+/* Vocabulary Gacha - Header-based Stable Version */
 
-console.log("Vocabulary Gacha JS loaded");
+console.log("Vocabulary Gacha loaded");
 
+/* =========================
+   Google Sheet（CSV）
+========================= */
 const SHEETS = {
   lunch:
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQNonIemQcLNNBZEmsVGc3TF8XWTZ_TXSCQfHdH5O6aNKLEavds1H376_3T8UGHl-bbJXInAFMHivZH/pub?output=csv",
@@ -13,25 +12,29 @@ const SHEETS = {
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vT78dT_LHyajgTDK1xmJmKKkBRE3n0oFeNOsRgvylJuYnw048c4gpcqsE8MIeCkgKt19CO5I6rEETCl/pub?output=csv"
 };
 
-// ===== State =====
+/* =========================
+   State
+========================= */
 let pool = [];
 let lastIndex = -1;
-let currentPoolKey = "";
 
-// ===== DOM (IDs must exist in HTML) =====
+/* =========================
+   DOM
+========================= */
 const statusEl = document.getElementById("status");
 const playerEl = document.getElementById("player");
-const tableEl = document.getElementById("poolTable");
+const tableEl  = document.getElementById("poolTable");
 
-// ===== Helpers =====
+/* =========================
+   Helpers
+========================= */
 function setStatus(msg) {
   if (statusEl) statusEl.textContent = msg;
 }
 
-function _clearPlayerInternal() {
+function clearPlayer() {
   if (playerEl) playerEl.src = "";
 }
-
 
 function escapeHtml(s) {
   return String(s || "")
@@ -44,28 +47,13 @@ function escapeHtml(s) {
 
 function toEmbed(url) {
   if (!url) return "";
-  url = String(url).trim();
-
-  // shorts
-  let m = url.match(/youtube\.com\/shorts\/([^?&/]+)/i);
-  if (m) return "https://www.youtube.com/embed/" + m[1] + "?autoplay=1&rel=0";
-
-  // youtu.be
-  m = url.match(/youtu\.be\/([^?&/]+)/i);
-  if (m) return "https://www.youtube.com/embed/" + m[1] + "?autoplay=1&rel=0";
-
-  // watch?v=
-  m = url.match(/[?&]v=([^?&/]+)/i);
-  if (m) return "https://www.youtube.com/embed/" + m[1] + "?autoplay=1&rel=0";
-
-  return "";
+  const m = url.match(/youtube\.com\/shorts\/([^?&/]+)/i);
+  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0` : "";
 }
 
-/*
-  CSV parsing:
-  Your sheet currently looks simple, but may contain commas.
-  We'll parse CSV with a minimal quoted-field parser.
-*/
+/* =========================
+   CSV Parser（原完整版本）
+========================= */
 function parseCsvLine(line) {
   const out = [];
   let cur = "";
@@ -75,7 +63,6 @@ function parseCsvLine(line) {
     const ch = line[i];
 
     if (ch === '"') {
-      // double quote inside quoted field => ""
       if (inQuotes && line[i + 1] === '"') {
         cur += '"';
         i++;
@@ -107,118 +94,110 @@ function parseCsv(csvText) {
 
   if (lines.length <= 1) return [];
 
-  // Drop header row
-  const dataLines = lines.slice(1);
+  /* === 用 header 建 index map === */
+  const headers = parseCsvLine(lines[0]);
+  const headerIndex = {};
+  headers.forEach((h, i) => {
+    headerIndex[h] = i;
+  });
+
+  const required = ["Item", "YT_URL", "enabled"];
+  for (const k of required) {
+    if (!(k in headerIndex)) {
+      console.error("Missing column:", k);
+      return [];
+    }
+  }
 
   const items = [];
-  for (const line of dataLines) {
+
+  for (const line of lines.slice(1)) {
     const cols = parseCsvLine(line);
 
-    const food = (cols[0] || "").trim();
-    const url = (cols[1] || "").trim();
-    const partner = (cols[2] || "").trim();
+    const enabled =
+      String(cols[headerIndex["enabled"]] || "")
+        .trim()
+        .toUpperCase() === "TRUE";
 
-    if (!food || !url) continue;
+    if (!enabled) continue;
 
-    items.push({ food, url, partner });
+    const item = cols[headerIndex["Item"]] || "";
+    const ytUrl = cols[headerIndex["YT_URL"]] || "";
+    if (!item || !ytUrl) continue;
+
+    items.push({
+      item: item.trim(),
+      ytUrl: ytUrl.trim(),
+      merchant: (cols[headerIndex["merchant"]] || "").trim(),
+      merchantUrl: (cols[headerIndex["merchant_url"]] || "").trim()
+    });
   }
+
   return items;
 }
 
-// ===== Public functions used by onclick in HTML =====
-window.loadPool = function (type) {
-  if (!SHEETS[type]) {
-    setStatus("球池類型錯誤");
-    return;
-  }
+/* =========================
+   Public API
+========================= */
+window.loadPool = function(type) {
+  if (!SHEETS[type]) return;
 
-  currentPoolKey = type;
   pool = [];
   lastIndex = -1;
-  if (tableEl) tableEl.innerHTML = "";
-  _clearPlayerInternal();
-  setStatus("載入球池中...");
+  tableEl.innerHTML = "";
+  clearPlayer();
+  setStatus("載入中...");
 
   fetch(SHEETS[type], { cache: "no-store" })
-    .then(res => res.text())
+    .then(r => r.text())
     .then(text => {
-      console.log("CSV preview:", text.slice(0, 120));
-
       pool = parseCsv(text);
-
       renderTable();
-      setStatus("已載入 " + pool.length + " 筆（" + (type === "lunch" ? "午餐" : "宵夜") + "球池）");
+      setStatus(`已載入 ${pool.length} 筆`);
     })
     .catch(err => {
       console.error(err);
-      setStatus("讀取失敗（若看到 CORS，下一步要用 Worker 代理）");
+      setStatus("載入失敗");
     });
 };
 
-window.spin = function () {
-  if (!pool || pool.length === 0) {
-    setStatus("請先選擇球池");
-    return;
-  }
+window.spin = function() {
+  if (!pool.length) return;
 
   let i;
   do {
     i = Math.floor(Math.random() * pool.length);
-  } while (pool.length > 1 && i === lastIndex);
+  } while (i === lastIndex && pool.length > 1);
 
   lastIndex = i;
-
-  const item = pool[i];
-  const embed = toEmbed(item.url);
-
-  if (!embed) {
-    setStatus("此筆網址無法解析成可嵌入格式");
-    return;
-  }
-
-  playerEl.src = embed;
-  setStatus("播放中...");
+  playerEl.src = toEmbed(pool[i].ytUrl);
 };
 
-window.clearPlayer = function () {
-  _clearPlayerInternal();
-  setStatus(currentPoolKey ? "已清空播放器" : "尚未載入球池");
+window.playIndex = function(i) {
+  playerEl.src = toEmbed(pool[i].ytUrl);
 };
 
-window.playIndex = function (idx) {
-  const item = pool[idx];
-  if (!item) return;
+window.clearPlayer = clearPlayer;
 
-  const embed = toEmbed(item.url);
-  if (!embed) {
-    setStatus("此筆網址無法解析成可嵌入格式");
-    return;
-  }
-
-  playerEl.src = embed;
-  setStatus("播放：「" + item.food + "」");
-};
-
-// ===== Table render =====
+/* =========================
+   Table Render
+========================= */
 function renderTable() {
-  if (!tableEl) return;
   tableEl.innerHTML = "";
-
-  if (!pool || pool.length === 0) return;
-
-  for (let i = 0; i < pool.length; i++) {
-    const item = pool[i];
+  pool.forEach((p, i) => {
     const tr = document.createElement("tr");
-
-    tr.innerHTML =
-      "<td>" + escapeHtml(item.food) + "</td>" +
-      "<td>" + escapeHtml(item.partner || "-") + "</td>" +
-      "<td><button onclick=\"playIndex(" + i + ")\">播放</button></td>" +
-      "<td><a href=\"" + escapeHtml(item.url) + "\" target=\"_blank\" rel=\"noopener\">YouTube</a></td>";
-
+    tr.innerHTML = `
+      <td>${escapeHtml(p.item)}</td>
+      <td>
+        ${p.merchantUrl
+          ? `<a href="${escapeHtml(p.merchantUrl)}" target="_blank">${escapeHtml(p.merchant)}</a>`
+          : escapeHtml(p.merchant || "—")}
+      </td>
+      <td><button onclick="playIndex(${i})">播放</button></td>
+      <td><a href="${escapeHtml(p.ytUrl)}" target="_blank">YT</a></td>
+    `;
     tableEl.appendChild(tr);
-  }
+  });
 }
 
-// Initial status
 setStatus("尚未載入球池");

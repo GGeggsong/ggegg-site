@@ -11,134 +11,145 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnNight = document.getElementById("btn-night");
   if (!tableBody || !btnLunch || !btnNight) return;
 
-  /* =========================
-     CSV 解析（可吃 \r\n）
-  ========================= */
-  function parseCSV(text) {
-    // 先統一換行，避免 \r 殘留
-    text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-
-    const rows = [];
-    let row = [];
-    let value = "";
+  /* ===== 跟主頁一模一樣的 parser ===== */
+  function parseCsvLine(line) {
+    const out = [];
+    let cur = "";
     let inQuotes = false;
 
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-
-      if (ch === '"' && text[i + 1] === '"') {
-        value += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === "," && !inQuotes) {
-        row.push(value);
-        value = "";
-      } else if (ch === "\n" && !inQuotes) {
-        row.push(value);
-        rows.push(row);
-        row = [];
-        value = "";
-      } else {
-        value += ch;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
       }
+      if (ch === "," && !inQuotes) {
+        out.push(cur);
+        cur = "";
+        continue;
+      }
+      cur += ch;
     }
-    if (value || row.length) {
-      row.push(value);
-      rows.push(row);
-    }
-    return rows;
+    out.push(cur);
+    return out.map(s => String(s).trim());
   }
 
-  /* =========================
-     按鈕 loading
-  ========================= */
+  // 欄位名正規化（容忍大小寫/空白/隱藏字元）
+  function normKey(s) {
+    return String(s || "")
+      .replace(/\uFEFF/g, "")      // BOM
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, ""); // 去除空白/符號（保留底線）
+  }
+
   function setLoading(on) {
     btnLunch.classList.toggle("loading", on);
     btnNight.classList.toggle("loading", on);
   }
 
-  /* =========================
-     載入 Sheet
-  ========================= */
   function loadSheet(type) {
     setLoading(true);
     tableBody.innerHTML = "";
 
-    fetch(SHEETS[type])
+    fetch(SHEETS[type], { cache: "no-store" })
       .then(r => r.text())
       .then(text => {
-        const rows = parseCSV(text);
+        const lines = text
+          .replace(/\uFEFF/g, "")
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n")
+          .split("\n")
+          .filter(l => l.trim().length > 0);
 
-        rows.slice(1).forEach(cols => {
-          if (!cols[0]) return;
+        if (lines.length <= 1) return;
 
-          const name   = String(cols[0] ?? "").trim();
-          const ytUrl  = String(cols[1] ?? "").trim();
-          const vendor = String(cols[2] ?? "").trim();
-          const views  = String(cols[3] ?? "").trim();
+        /* === headerIndex（容錯版）：用正規化 key 建 map === */
+        const headers = parseCsvLine(lines[0]);
+        const headerIndex = {};
+        headers.forEach((h, i) => {
+          const k = normKey(h);
+          if (k) headerIndex[k] = i; // 同名以最後一個為準
+        });
+
+        // 取值 helper：支援多個別名
+        const col = (cols, keys) => {
+          for (const key of keys) {
+            const idx = headerIndex[normKey(key)];
+            if (typeof idx === "number" && idx >= 0) return cols[idx] ?? "";
+          }
+          return "";
+        };
+
+        lines.slice(1).forEach(line => {
+          const cols = parseCsvLine(line);
+
+          const enabled =
+            String(col(cols, ["enabled"]) || "")
+              .trim()
+              .toUpperCase() === "TRUE";
+          if (!enabled) return;
+
+          const item = col(cols, ["Item", "item"]) || "";
+          const ytUrl = col(cols, ["YT_URL", "yt_url", "yturl"]) || "";
+          const views = col(cols, ["views", "view", "viewscount"]) || "";
+
+          const merchant = String(col(cols, ["merchant", "store", "shop"]) || "").trim();
+          const merchantUrl = String(col(cols, ["merchant_url", "merchanturl", "store_url", "shop_url"]) || "").trim();
 
           const donateTriggered =
-            String(cols[5] ?? "").trim().toUpperCase() === "TRUE";
+            String(col(cols, ["donate_triggered", "donatetriggered", "donate"]) || "")
+              .trim()
+              .toUpperCase() === "TRUE";
+          const receiptUrl =
+            String(col(cols, ["receipt_url", "receipturl", "receipt"]) || "").trim();
 
-          // 關鍵：trim 後再判斷（避免 \r / 假空白）
-          const receiptUrl = String(cols[6] ?? "").trim();
+          if (!item) return;
 
-          // 狀態：收據 > 達標 > 進行中
           let statusHtml = `<span class="status running">進行中</span>`;
           if (receiptUrl) {
             statusHtml = `
-              <a href="${receiptUrl}" target="_blank" rel="noopener" class="status done">
+              <a href="${receiptUrl}" target="_blank" class="status done">
                 ✅ 已完成捐款（查看收據）
-              </a>
-            `;
+              </a>`;
           } else if (donateTriggered) {
             statusHtml = `<span class="status triggered">🟡 已達捐款門檻</span>`;
           }
 
+          const merchantHtml = merchantUrl
+            ? `<a href="${merchantUrl}" target="_blank">${merchant}</a>`
+            : (merchant || "—");
+
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${name}</td>
-            <td>
-              ${ytUrl
-                ? `<a href="${ytUrl}" target="_blank" rel="noopener">YouTube</a>`
-                : `<span style="color:#aaa;">—</span>`
-              }
-            </td>
+            <td>${item}</td>
+            <td>${ytUrl ? `<a href="${ytUrl}" target="_blank">YouTube</a>` : "—"}</td>
             <td class="views">${views}</td>
-            <td>${vendor}</td>
+            <td>${merchantHtml}</td>
             <td>${statusHtml}</td>
           `;
           tableBody.appendChild(tr);
         });
       })
-      .catch(err => {
-        console.error("Sheet 載入失敗", err);
-        tableBody.innerHTML = `
-          <tr><td colspan="5" style="color:#999;">資料載入失敗</td></tr>
-        `;
-      })
       .finally(() => setLoading(false));
   }
 
-  /* =========================
-     切換按鈕
-  ========================= */
-  btnLunch.addEventListener("click", () => {
-    if (btnLunch.classList.contains("active")) return;
+  btnLunch.onclick = () => {
     btnLunch.classList.add("active");
     btnNight.classList.remove("active");
     loadSheet("lunch");
-  });
-
-  btnNight.addEventListener("click", () => {
-    if (btnNight.classList.contains("active")) return;
+  };
+  btnNight.onclick = () => {
     btnNight.classList.add("active");
     btnLunch.classList.remove("active");
     loadSheet("night");
-  });
+  };
 
-  // 初始
   btnLunch.classList.add("active");
   loadSheet("lunch");
 });

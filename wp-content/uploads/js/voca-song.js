@@ -3,7 +3,7 @@
   - 仍保留自動讀取：不需要手動維護歌曲清單
   - 但在程式內轉成 songs 物件結構（符合你指定的資料結構）
 ========================= */
-const APP_VERSION = "2026-01-01.13";
+const APP_VERSION = "2026-01-01.14";
 
 const SHEET_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt7Ov63JtfrisM5cW9wsb_5q9wagU0ZQgIv6WF5lDxCuFIqr_7CkyaH_rWgyUYQkpbNRauDoANi1YH/pub?output=csv";
@@ -1132,17 +1132,13 @@ function applyOffset(delta) {
   updateOffsetDisplay();
 }
 
-// 可能有重複 ID：用事件委派確保點到哪個都有效
+// 可能有重複 ID：用事件委派確保點到哪個都有效（避免同時綁定造成點一次加兩次）
 document.addEventListener("click", (e) => {
-  const t = e.target;
-  if (!t) return;
-  if (t.id === "offsetPlusBtn") applyOffset(+0.5);
-  if (t.id === "offsetMinusBtn") applyOffset(-0.5);
+  const btn = e.target && e.target.closest ? e.target.closest("#offsetPlusBtn, #offsetMinusBtn") : null;
+  if (!btn) return;
+  if (btn.id === "offsetPlusBtn") applyOffset(+0.5);
+  if (btn.id === "offsetMinusBtn") applyOffset(-0.5);
 });
-
-// 若頁面真的只有單一元素，也保留 direct 綁定（沒壞處）
-if (offsetPlusBtn) offsetPlusBtn.onclick = () => applyOffset(+0.5);
-if (offsetMinusBtn) offsetMinusBtn.onclick = () => applyOffset(-0.5);
 
 // 初始化偏移顯示
 updateOffsetDisplay();
