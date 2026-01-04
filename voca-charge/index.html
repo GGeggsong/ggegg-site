@@ -211,23 +211,11 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
   <title>單字資料庫</title>
 
   <style>
-    body {
-      font-family: system-ui, Segoe UI, Arial;
-      margin: 16px;
-    }
+    body { font-family: system-ui, Segoe UI, Arial; margin: 16px; }
 
-    #letters button {
-      margin: 2px;
-      padding: 6px 10px;
-      cursor: pointer;
-    }
+    #letters button { margin: 2px; padding: 6px 10px; cursor: pointer; }
 
-    .bar {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin: 12px 0;
-    }
+    .bar { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
 
     /* ===== 表格樣式 ===== */
     .table {
@@ -240,28 +228,11 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     .row { display: contents; }
     .header { display: contents; }
 
-    .cell {
-      padding: 8px;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-    }
-
-    .header .cell {
-      font-weight: 700;
-      background: #f7f7f7;
-    }
-
-    .cell.en {
-      font-weight: 600;
-      font-size: 15px;
-    }
-
+    .cell { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+    .header .cell { font-weight: 700; background: #f7f7f7; }
+    .cell.en { font-weight: 600; font-size: 15px; }
     .cell.img { font-size: 18px; }
-
-    .empty {
-      margin-top: 16px;
-      opacity: .7;
-    }
+    .empty { margin-top: 16px; opacity: .7; }
   </style>
 
 
@@ -275,6 +246,12 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     <button id="searchBtn">搜尋</button>
   </div>
 
+  <!-- 新功能：圖案綁定說明（JS 也會自動補上；這段寫死也 OK） -->
+  <div style="margin:8px 0 0;display:flex;gap:8px;align-items:center">
+    <button id="memoryMapBtn" type="button">圖案綁定說明</button>
+    <span style="opacity:.7;font-size:13px">（點 emoji 也可打開）</span>
+  </div>
+
   <div id="letters"></div>
 
   <!-- 表格 -->
@@ -285,8 +262,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
     window.VOCA_CHARGE_MODE = "jsonp";
   </script>
 
-  <!-- 注意：這裡的 src 請依你的靜態站實際路徑調整 -->
-  <!-- 如果你的靜態站根目錄沒有 /wordpress/ 這層，改成 /wp-content/uploads/js/voca-charge.js -->
+  <!-- 注意：這裡請依你的靜態站實際路徑調整 -->
   <script type="module" src="/wp-content/uploads/js/voca-charge.js"></script>
 
 

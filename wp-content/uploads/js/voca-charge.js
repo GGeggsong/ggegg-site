@@ -3,11 +3,12 @@ import {
   getLetters,
   getByLetter,
   search,
-  getMeta
+  getMeta,
+  getMemoryMap
 } from "./voca-charge_api.js";
 
 // 版本號（避免因瀏覽器快取導致舊版 voca-charge_api.js 尚未帶出 APP_VERSION export 而整個掛掉）
-const APP_VERSION = "2026-01-02.04";
+const APP_VERSION = "2026-01-02.05";
 console.log("[voca-charge] loaded", { v: APP_VERSION });
 
 const elLetters = document.querySelector("#letters");
@@ -17,6 +18,220 @@ const elSearch = document.querySelector("#search");
 const elSearchBtn = document.querySelector("#searchBtn");
 const elTotal = document.querySelector("#total");
 const elSub = document.querySelector("#subcount");
+
+// ===== Memory Map UI (圖案綁定說明) =====
+let memoryMapCache = null;
+let memoryMapLoading = null;
+
+function ensureMemoryMapUi() {
+  // 插入「圖案綁定說明」按鈕（若頁面沒寫死在 HTML，也能自動補上）
+  let btn = document.getElementById("memoryMapBtn");
+  if (!btn) {
+    const bar = document.createElement("div");
+    bar.style.margin = "8px 0 0";
+    bar.style.display = "flex";
+    bar.style.gap = "8px";
+    bar.style.alignItems = "center";
+
+    btn = document.createElement("button");
+    btn.id = "memoryMapBtn";
+    btn.type = "button";
+    btn.textContent = "圖案綁定說明";
+
+    const hint = document.createElement("span");
+    hint.style.opacity = "0.7";
+    hint.style.fontSize = "13px";
+    hint.textContent = "（點 emoji 也可打開）";
+
+    bar.appendChild(btn);
+    bar.appendChild(hint);
+
+    // 優先插在搜尋 bar 後面
+    const searchBar = document.querySelector(".bar");
+    if (searchBar?.parentNode) {
+      searchBar.parentNode.insertBefore(bar, searchBar.nextSibling);
+    } else if (elList?.parentNode) {
+      elList.parentNode.insertBefore(bar, elList);
+    } else {
+      document.body.appendChild(bar);
+    }
+  }
+
+  // 建 modal（避免依賴 HTML）
+  if (!document.getElementById("memoryMapModal")) {
+    const overlay = document.createElement("div");
+    overlay.id = "memoryMapModal";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "rgba(0,0,0,.45)";
+    overlay.style.display = "none";
+    overlay.style.zIndex = "99999";
+    overlay.style.padding = "24px";
+    overlay.style.boxSizing = "border-box";
+
+    const panel = document.createElement("div");
+    panel.style.maxWidth = "900px";
+    panel.style.margin = "0 auto";
+    panel.style.background = "#fff";
+    panel.style.borderRadius = "12px";
+    panel.style.boxShadow = "0 20px 60px rgba(0,0,0,.25)";
+    panel.style.overflow = "hidden";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.justifyContent = "space-between";
+    header.style.padding = "12px 16px";
+    header.style.borderBottom = "1px solid #eee";
+
+    const title = document.createElement("div");
+    title.style.fontWeight = "700";
+    title.textContent = "圖案綁定說明（_memory_map）";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.textContent = "關閉";
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const body = document.createElement("div");
+    body.style.padding = "12px 16px 16px";
+
+    const searchWrap = document.createElement("div");
+    searchWrap.style.display = "flex";
+    searchWrap.style.gap = "8px";
+    searchWrap.style.alignItems = "center";
+    searchWrap.style.marginBottom = "10px";
+
+    const input = document.createElement("input");
+    input.id = "memoryMapSearch";
+    input.placeholder = "搜尋 key / Note";
+    input.style.flex = "1";
+    input.style.padding = "8px 10px";
+
+    const meta = document.createElement("div");
+    meta.id = "memoryMapMeta";
+    meta.style.opacity = "0.7";
+    meta.style.fontSize = "13px";
+
+    searchWrap.appendChild(input);
+    searchWrap.appendChild(meta);
+
+    const tableWrap = document.createElement("div");
+    tableWrap.id = "memoryMapTable";
+    tableWrap.style.maxHeight = "70vh";
+    tableWrap.style.overflow = "auto";
+    tableWrap.style.border = "1px solid #eee";
+    tableWrap.style.borderRadius = "10px";
+
+    body.appendChild(searchWrap);
+    body.appendChild(tableWrap);
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    function close() { overlay.style.display = "none"; }
+    closeBtn.onclick = close;
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && overlay.style.display !== "none") close();
+    });
+  }
+
+  btn.onclick = () => openMemoryMapModal();
+
+  // 點 emoji 圖案也可打開（事件代理）
+  elList?.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t && t.closest && t.closest(".imgBtn")) {
+      openMemoryMapModal();
+    }
+  });
+}
+
+function renderMemoryMapTable(rows, q) {
+  const wrap = document.getElementById("memoryMapTable");
+  const meta = document.getElementById("memoryMapMeta");
+  if (!wrap || !meta) return;
+
+  const query = String(q || "").trim().toLowerCase();
+  const filtered = query
+    ? rows.filter(r => {
+        const hay = `${r.key || ""} ${r.note || ""}`.toLowerCase();
+        return hay.includes(query);
+      })
+    : rows;
+
+  meta.textContent = `共 ${rows.length} 筆${query ? `，符合 ${filtered.length} 筆` : ""}`;
+
+  const esc = escapeHtml;
+  const html = [
+    `<div style="display:grid;grid-template-columns:1.2fr .6fr 2fr;border-bottom:1px solid #eee;background:#fafafa;font-weight:700">`,
+    `<div style="padding:10px;border-right:1px solid #eee">key</div>`,
+    `<div style="padding:10px;border-right:1px solid #eee">image</div>`,
+    `<div style="padding:10px">Note</div>`,
+    `</div>`,
+    ...filtered.map(r => (
+      `<div style="display:grid;grid-template-columns:1.2fr .6fr 2fr;border-bottom:1px solid #f2f2f2">` +
+      `<div style="padding:10px;border-right:1px solid #f2f2f2">${esc(r.key)}</div>` +
+      `<div style="padding:10px;border-right:1px solid #f2f2f2;font-size:18px">${esc(r.image)}</div>` +
+      `<div style="padding:10px">${esc(r.note)}</div>` +
+      `</div>`
+    ))
+  ].join("");
+
+  wrap.innerHTML = html || `<div style="padding:12px;opacity:.7">沒有資料</div>`;
+}
+
+async function loadMemoryMap() {
+  if (memoryMapCache) return memoryMapCache;
+  if (memoryMapLoading) return await memoryMapLoading;
+
+  memoryMapLoading = (async () => {
+    const res = await getMemoryMap();
+    if (!res?.ok) throw new Error(res?.error || "memory_map_failed");
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    memoryMapCache = rows.map(r => ({
+      key: r.key ?? "",
+      image: r.image ?? "",
+      note: r.note ?? ""
+    }));
+    return memoryMapCache;
+  })();
+
+  try {
+    return await memoryMapLoading;
+  } finally {
+    memoryMapLoading = null;
+  }
+}
+
+async function openMemoryMapModal() {
+  ensureMemoryMapUi();
+  const overlay = document.getElementById("memoryMapModal");
+  const input = document.getElementById("memoryMapSearch");
+  if (!overlay) return;
+
+  overlay.style.display = "block";
+  const wrap = document.getElementById("memoryMapTable");
+  if (wrap) wrap.innerHTML = `<div style="padding:12px;opacity:.7">載入中…</div>`;
+
+  try {
+    const rows = await loadMemoryMap();
+    renderMemoryMapTable(rows, input?.value);
+    if (input) {
+      input.oninput = () => renderMemoryMapTable(rows, input.value);
+      setTimeout(() => input.focus(), 0);
+    }
+  } catch (e) {
+    if (wrap) wrap.innerHTML = `<div style="padding:12px;opacity:.7">讀取失敗，請稍後再試</div>`;
+  }
+}
 
 // ===== State =====
 const state = {
@@ -105,10 +320,13 @@ function renderTable(rows) {
   sorted.forEach(item => {
     const row = document.createElement("div");
     row.className = "row";
+    const imgHtml = item.img
+      ? `<button type="button" class="imgBtn" title="查看圖案綁定說明" style="all:unset;cursor:pointer;font-size:18px">${escapeHtml(item.img)}</button>`
+      : ``;
     row.innerHTML = `
       <div class="cell en">${escapeHtml(item.en)}</div>
       <div class="cell">${escapeHtml(item.zh)}</div>
-      <div class="cell img">${escapeHtml(item.img)}</div>
+      <div class="cell img">${imgHtml}</div>
       <div class="cell">${escapeHtml(item.note)}</div>
     `;
     elList.appendChild(row);
@@ -202,6 +420,7 @@ async function init() {
     elSub.textContent = `本頁單字數：${r?.firstData?.count ?? rows.length}`;
     renderTable(rows);
     console.log("[voca-charge] init ok (init=1)", { v: APP_VERSION, first, letters: (r?.letters || []).length });
+    ensureMemoryMapUi();
     return;
   } catch {
     // fallback：走舊流程
@@ -233,6 +452,7 @@ async function init() {
     });
 
     elLetters.querySelector("button")?.click();
+    ensureMemoryMapUi();
   } catch {
     showError("載入字母清單失敗，請稍後再試");
   }

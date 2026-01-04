@@ -337,7 +337,7 @@ function loadQueue(queue) {
   renderQueue();
 }
 
-function playAtIndex(index) {
+function playAtIndex(index, { autoPlay = true } = {}) {
   const i = Number(index);
   if (!Number.isFinite(i)) return;
   if (!currentQueue.length) return;
@@ -357,7 +357,7 @@ function playAtIndex(index) {
   updateFavToggleBtn();
   loadCurrent({ resetTwoStep: true });
   updateLoadBtnText();
-  requestAutoPlayAfterSwitch();
+  if (autoPlay) requestAutoPlayAfterSwitch();
 }
 
 function loadFavorites() {
@@ -754,12 +754,12 @@ function handleLeftEnded() {
   if (currentQueue && currentQueue.length) {
     const next = currentQueueIndex + 1;
     if (next < currentQueue.length) {
-      playAtIndex(next);
+      playAtIndex(next, { autoPlay: true });
       return;
     }
     // queue 到尾
     if (loopEnabled) {
-      playAtIndex(0);
+      playAtIndex(0, { autoPlay: true });
     }
     return;
   }
@@ -1154,6 +1154,21 @@ if (timeBtn) {
 
 nextBtn.onclick = () => {
   if (!songKeys.length) return;
+
+  // ✅ 若目前有載入「播放清單（Queue）」：用 Queue 順序換歌，確保「播放的歌」與「清單顯示」一致
+  if (currentQueue && currentQueue.length) {
+    const wasPlaying = isLeftPlaying();
+    const next = currentQueueIndex + 1;
+    if (next < currentQueue.length) {
+      playAtIndex(next, { autoPlay: wasPlaying });
+      return;
+    }
+    if (loopEnabled) {
+      playAtIndex(0, { autoPlay: wasPlaying });
+    }
+    return;
+  }
+
   const wasPlaying = isLeftPlaying();
   if (currentIndex + 1 >= songKeys.length) {
     if (!loopEnabled) return;
@@ -1166,6 +1181,21 @@ nextBtn.onclick = () => {
 
 prevBtn.onclick = () => {
   if (!songKeys.length) return;
+
+  // ✅ 若目前有載入「播放清單（Queue）」：用 Queue 順序換歌
+  if (currentQueue && currentQueue.length) {
+    const wasPlaying = isLeftPlaying();
+    const prev = currentQueueIndex - 1;
+    if (prev >= 0) {
+      playAtIndex(prev, { autoPlay: wasPlaying });
+      return;
+    }
+    if (loopEnabled) {
+      playAtIndex(currentQueue.length - 1, { autoPlay: wasPlaying });
+    }
+    return;
+  }
+
   const wasPlaying = isLeftPlaying();
   if (currentIndex - 1 < 0) {
     if (!loopEnabled) return;
@@ -1239,7 +1269,7 @@ if (nowQueueList) {
     if (!el) return;
     const idxStr = el.dataset && el.dataset.index;
     if (idxStr == null) return;
-    playAtIndex(Number(idxStr));
+    playAtIndex(Number(idxStr), { autoPlay: true });
   });
 }
 
@@ -1525,7 +1555,7 @@ if (playMyPlaylistBtn) {
       q = pls && Array.isArray(pls[name]) ? pls[name] : [];
     }
     loadQueue(q);
-    playAtIndex(0);
+    playAtIndex(0, { autoPlay: true });
   });
 }
 

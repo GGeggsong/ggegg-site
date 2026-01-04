@@ -13,8 +13,13 @@ if (!statsBar) {
   statsBar.id = "vocaStats";
   statsBar.style.margin = "8px 0 12px";
   statsBar.style.fontWeight = "600";
-  // 插在按鈕列後、表格前
-  buttonsContainer?.parentNode?.insertBefore(statsBar, tableBody.parentNode);
+  // 插在按鈕列後、表格前（避免 insertBefore 的 ref 不是 parent 的 child 而噴 DOMException）
+  const tableEl = tableBody?.closest?.("table");
+  if (tableEl?.parentNode) {
+    tableEl.parentNode.insertBefore(statsBar, tableEl);
+  } else if (buttonsContainer?.parentNode) {
+    buttonsContainer.parentNode.insertBefore(statsBar, buttonsContainer.nextSibling);
+  }
 }
 
 // 產生 CSV 下載網址（用 pub? 而非 pubhtml）
@@ -87,38 +92,85 @@ function renderTable(rows) {
     `;
   }
 
-  // 將欄位名稱正規化（去除空白、括號與非字母數字，轉小寫）
-  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  // 重要：不要因為該列某欄位是空值就跳過 key，否則會被「太泛用的候選詞」誤配到其他欄位
+  // 例如：Japanese Kanji 空值時，若允許包含比對可能抓到 Japanese Kana 的值
 
-  // 依欄位鍵名清單取得值，若有括號/空白等也能匹配
-  const getVal = (row, targetKeys) => {
-    const targetsNorm = targetKeys.map(normalize);
-    for (const [rawKey, val] of Object.entries(row)) {
-      if (!val) continue;
+  // 將欄位名稱正規化（去除空白、括號與非字母數字，轉小寫）
+  const normalize = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+  // 先找出欄位 key（不受值是否為空影響）
+  const findKey = (row, targetKeys) => {
+    const keys = Object.keys(row || {});
+    const targetsNorm = (targetKeys || []).map(normalize).filter(Boolean);
+
+    // 1) normalized 完全一致（最準）
+    for (const rawKey of keys) {
       const nk = normalize(rawKey);
-      // 1) normalized 比對（英數標題）
-      if (targetsNorm.includes(nk)) return val;
-      // 2) 原始字串包含/等於（處理中文或含符號標題）
-      for (const tk of targetKeys) {
-        if (!tk) continue;
-        const rawTrim = rawKey.trim();
-        if (rawTrim === tk || rawTrim.includes(tk)) return val;
+      if (nk && targetsNorm.includes(nk)) return rawKey;
+    }
+
+    // 2) 原始字串包含/等於（處理中文或含符號標題）
+    const targets = (targetKeys || []).map((v) => String(v || "").trim()).filter(Boolean);
+    for (const rawKey of keys) {
+      const rawTrim = String(rawKey || "").trim();
+      for (const tk of targets) {
+        if (rawTrim === tk || rawTrim.includes(tk)) return rawKey;
       }
     }
-    return "";
+    return null;
+  };
+
+  const getVal = (row, targetKeys) => {
+    const k = findKey(row, targetKeys);
+    return k ? String(row?.[k] ?? "").trim() : "";
   };
 
   rows.forEach((row) => {
-    const zh = getVal(row, ["Chinese (ZH)", "word_zh", "中文", "zh", "Chinese"]);
-    const en = getVal(row, ["English (EN)", "word_en", "English", "英文", "en"]);
+    // 依你的最新表頭（含括號 + 語系代碼）精準比對
+    const zh = getVal(row, ["Chinese (ZH)", "Chinese(ZH)", "word_zh", "中文", "zh", "Chinese"]);
+    const en = getVal(row, ["English (EN)", "English(EN)", "word_en", "English", "英文", "en"]);
 
-    const jpKana = getVal(row, ["Japanese Kana (JA)", "kana", "jp_kana", "jp_k", "假名"]);
-    const jpKanji =
-      getVal(row, ["Japanese Kanji (JA)", "kanji", "jp_kanji", "Japanese", "日文", "日語", "日本語"]) ||
-      getVal(row, ["word_jp", "jp"]);
+    const jpKana = getVal(row, [
+      "Japanese Kana (JA)",
+      "Japanese Kana(JA)",
+      "Japanese Kana",
+      "Kana",
+      "jp_kana",
+      "word_jp_kana",
+      "假名",
+      "かな",
+    ]);
 
-    const kr = getVal(row, ["Korean (KO)", "word_kr", "한국어", "韓文", "kr", "Korean"]);
-    const th = getVal(row, ["Thai (TH)", "thai", "th", "泰文", "泰語"]);
+    // 日文漢字：先只用 kanji 類候選詞抓；只有在「根本沒有 kanji 欄」時才 fallback 到 Japanese/日文
+    const hasKanjiKey = !!findKey(row, [
+      "Japanese Kanji (JA)",
+      "Japanese Kanji(JA)",
+      "Japanese Kanji",
+      "Kanji",
+      "jp_kanji",
+      "word_jp_kanji",
+      "漢字",
+    ]);
+
+    let jpKanji = getVal(row, [
+      "Japanese Kanji (JA)",
+      "Japanese Kanji(JA)",
+      "Japanese Kanji",
+      "Kanji",
+      "jp_kanji",
+      "word_jp_kanji",
+      "word_jp",
+      "漢字",
+    ]);
+
+    if (!hasKanjiKey) {
+      jpKanji =
+        jpKanji ||
+        getVal(row, ["Japanese (JA)", "Japanese(JA)", "Japanese", "日文", "日語", "日本語", "word_jp", "jp"]);
+    }
+
+    const kr = getVal(row, ["Korean (KO)", "Korean(KO)", "word_kr", "한국어", "韓文", "ko", "kr", "Korean"]);
+    const th = getVal(row, ["Thai (TH)", "Thai(TH)", "thai", "th", "泰文", "泰語", "ไทย", "Thai"]);
 
     // 收集所有 URL 類欄位（值以 http 開頭，含多語 URL 欄），以語別縮寫／組合標籤呈現
     const linkFragments = [];
@@ -134,6 +186,7 @@ function renderTable(rows) {
       if (k.includes("zh・en・th") || k.includes("zh en th")) return "ZH+EN+TH";
       if (k.includes("zh・ko・ja") || k.includes("zh ko ja")) return "ZH+KO+JA";
       if (k.includes("zh・ko・th") || k.includes("zh ko th")) return "ZH+KO+TH";
+      if (k.includes("en・ko・ja") || k.includes("en ko ja")) return "EN+KO+JA";
       if (k.includes("zh")) return "ZH";
       if (k.includes("en")) return "EN";
       if (k.includes("ja")) return "JA";
@@ -152,6 +205,7 @@ function renderTable(rows) {
       "ZH+EN+TH": "ZH/EN/TH (中/英/泰)",
       "ZH+KO+JA": "ZH/KO/JA (中/韓/日)",
       "ZH+KO+TH": "ZH/KO/TH (中/韓/泰)",
+      "EN+KO+JA": "EN/KO/JA (英/韓/日)",
       VIDEO: "🎧 影片",
       LINK: "🔗 連結",
     };
