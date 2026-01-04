@@ -8,7 +8,7 @@ import {
 } from "./voca-charge_api.js";
 
 // 版本號（避免因瀏覽器快取導致舊版 voca-charge_api.js 尚未帶出 APP_VERSION export 而整個掛掉）
-const APP_VERSION = "2026-01-02.05";
+const APP_VERSION = "2026-01-02.06";
 console.log("[voca-charge] loaded", { v: APP_VERSION });
 
 const elLetters = document.querySelector("#letters");
@@ -18,6 +18,13 @@ const elSearch = document.querySelector("#search");
 const elSearchBtn = document.querySelector("#searchBtn");
 const elTotal = document.querySelector("#total");
 const elSub = document.querySelector("#subcount");
+
+function titleForLetter(L) {
+  const s = String(L || "").trim();
+  if (!s) return "載入中…";
+  if (s.toLowerCase() === "other") return "其他（Other）";
+  return `字母 ${s}`;
+}
 
 // ===== Memory Map UI (圖案綁定說明) =====
 let memoryMapCache = null;
@@ -346,7 +353,7 @@ async function loadLetter(L) {
     state.sortKey = "en";
     state.sortDir = "asc";
 
-    elTitle.textContent = `字母 ${L}`;
+    elTitle.textContent = titleForLetter(L);
     const res = await getByLetter(L);
 
     const rows = Array.isArray(res?.data) ? res.data : [];
@@ -416,7 +423,7 @@ async function init() {
     state.sortKey = "en";
     state.sortDir = "asc";
 
-    elTitle.textContent = `字母 ${first}`;
+    elTitle.textContent = titleForLetter(first);
     elSub.textContent = `本頁單字數：${r?.firstData?.count ?? rows.length}`;
     renderTable(rows);
     console.log("[voca-charge] init ok (init=1)", { v: APP_VERSION, first, letters: (r?.letters || []).length });

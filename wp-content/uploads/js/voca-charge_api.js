@@ -5,7 +5,7 @@
 // - 有 WordPress：用 admin-ajax proxy（不依賴 REST）
 // - 純靜態：用 JSONP（需要 GAS 支援 callback 參數）
 
-export const APP_VERSION = "2026-01-02.05";
+export const APP_VERSION = "2026-01-02.06";
 
 // 你的 GAS Web App /exec（靜態站 JSONP 會用到）
 export const GAS_BASE =
