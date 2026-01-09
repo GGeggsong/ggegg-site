@@ -109,6 +109,10 @@ let songKeys = []; // Object.keys(songs) 的快取（用於 prev/next）
 let filteredSongKeys = null; // 搜尋結果（只影響 dropdown 顯示）
 let currentIndex = 0; // 對 songKeys 的 index
 let currentMode = "noun"; // noun | verb | adj
+// song_id -> songKey（支援 /tool?song=... 直接定位）
+let songKeyById = {};
+// songKey -> meta（用來顯示 song_title / artist / song_id）
+let songMetaByKey = {};
 let loopEnabled = false; // repeat all
 let repeatOneEnabled = false; // repeat one
 let loadedKey = null; // 兩段式：同一首同詞性只需載入一次
@@ -580,7 +584,7 @@ function pauseBoth() {
 function syncBoth() {
   const t = getMvCurrentTime();
   if (t === null) {
-    alert("無法取得左邊影片時間，請先按播放一次讓影片載入再試。");
+    showPageMessage("無法取得左邊影片時間，請先按播放一次讓影片載入再試。", { type: "error" });
     console.warn("[voca-song] syncBoth: no currentTime (API not ready / mv not ready)");
     return;
   }
@@ -632,12 +636,104 @@ function getSongEntry(songKey) {
 function setCurrentSongLabel() {
   if (!currentSongEl) return;
   const key = getCurrentSongKey();
+  const meta = key ? songMetaByKey[key] : null;
+  const title = meta && meta.title ? meta.title : "";
+  const artist = meta && meta.artist ? meta.artist : "";
+  const id = meta && meta.song_id ? meta.song_id : "";
+  const display = title ? `${title}${artist ? ` / ${artist}` : ""}` : key;
   const MODE_ZH = { noun: "名詞", verb: "動詞", adj: "形容詞" };
   const modeZh = MODE_ZH[currentMode] || currentMode;
   currentSongEl.textContent = key
-    ? `🎵 當前歌曲：${key} ｜ 📚 學習模式：${modeZh}`
+    ? `🎵 當前歌曲：${display}${id ? `（${id}）` : ""} ｜ 📚 學習模式：${modeZh}`
     : `🎵 當前歌曲：— ｜ 📚 學習模式：${modeZh}`;
 }
+
+/* =========================
+   Page message（避免 alert）
+========================= */
+let pageMsgEl = null;
+function ensurePageMsgEl() {
+  if (pageMsgEl) return pageMsgEl;
+  pageMsgEl = document.getElementById("vocaSongMsg");
+  if (pageMsgEl) return pageMsgEl;
+
+  const el = document.createElement("div");
+  el.id = "vocaSongMsg";
+  el.style.display = "none";
+  el.style.margin = "10px 0";
+  el.style.padding = "10px 12px";
+  el.style.borderRadius = "10px";
+  el.style.fontSize = "14px";
+  el.style.lineHeight = "1.6";
+  el.style.fontWeight = "700";
+  el.style.whiteSpace = "pre-wrap";
+  el.style.wordBreak = "break-word";
+
+  // 優先插在 currentSong 上方；沒有就插 body 最前面
+  const anchor = currentSongEl && currentSongEl.parentElement ? currentSongEl : document.body.firstChild;
+  if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor);
+  else document.body.appendChild(el);
+
+  pageMsgEl = el;
+  return el;
+}
+
+function showPageMessage(text, { type = "info" } = {}) {
+  const el = ensurePageMsgEl();
+  const t = (text || "").trim();
+  if (!t) {
+    el.style.display = "none";
+    el.textContent = "";
+    return;
+  }
+  const isErr = type === "error";
+  el.style.display = "block";
+  el.style.color = isErr ? "#991b1b" : "#0f172a"; // red-800 / slate-900
+  el.style.background = isErr ? "#fef2f2" : "#f1f5f9"; // red-50 / slate-100
+  el.style.border = `1px solid ${isErr ? "#fecaca" : "#cbd5e1"}`; // red-200 / slate-300
+  el.textContent = t;
+}
+
+function clearPageMessage() {
+  showPageMessage("");
+}
+
+/* =========================
+   URL param + loadSong(songId)
+========================= */
+function getQueryParam(name) {
+  try {
+    const key = String(name || "").trim();
+    if (!key) return "";
+    const sp = new URLSearchParams(window.location.search || "");
+    return (sp.get(key) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeSongId(id) {
+  return String(id || "").trim().toUpperCase();
+}
+
+// 核心：用 song_id 直接載入對應歌曲（不要求使用者手動選歌）
+function loadSong(songId, { autoPlay = false } = {}) {
+  const id = normalizeSongId(songId);
+  if (!id) return false;
+  const songKey = songKeyById[id];
+  if (!songKey) return false;
+  const idx = songKeys.indexOf(songKey);
+  if (idx < 0) return false;
+
+  clearPageMessage();
+  // 你要求：預設載入 noun（若不存在會自動 fallback）
+  currentMode = "noun";
+  goToIndex(idx, { autoPlay: !!autoPlay });
+  return true;
+}
+
+// 對外（方便你在 console 測 & 其他 script 呼叫）
+window.loadSong = loadSong;
 
 function setModeTabsState() {
   const entry = getSongEntry(getCurrentSongKey());
@@ -889,12 +985,12 @@ function applyIframes(songKey, mode) {
 
   if (!mvId) {
     console.warn("[voca-song] missing left videoId", { songKey, mode, leftUrl });
-    alert("這首歌的左邊 MV 連結缺少或格式不正確（無法取得影片ID）。請換一首歌或修正資料。");
+    showPageMessage("這首歌的左邊 MV 連結缺少或格式不正確（無法取得影片ID）。請換一首歌或修正資料。", { type: "error" });
     return null;
   }
   if (!vocabId) {
     console.warn("[voca-song] missing right videoId", { songKey, mode, rightUrl });
-    alert("這首歌的右邊單字影片連結缺少或格式不正確（無法取得影片ID）。請換一個模式或修正資料。");
+    showPageMessage("這首歌的右邊單字影片連結缺少或格式不正確（無法取得影片ID）。請換一個模式或修正資料。", { type: "error" });
     return null;
   }
 
@@ -972,6 +1068,17 @@ function renderSongSelect() {
   const isSearching = !!q;
 
   const visible = getVisibleSongKeys();
+
+  // 若沒有當前歌曲（例如帶了 song 但找不到），放一個提示 option 避免瀏覽器自動選到第一首
+  const curKey = getCurrentSongKey();
+  if (!curKey && !isSearching) {
+    const hint = document.createElement("option");
+    hint.value = "";
+    hint.disabled = true;
+    hint.selected = true;
+    hint.textContent = "找不到對應歌曲，請從影片連結進入";
+    songSelect.appendChild(hint);
+  }
 
   // 搜尋中：先放一個提示 option，避免「預選第一筆」導致使用者點同一個選項不觸發 change
   if (isSearching) {
@@ -1575,12 +1682,17 @@ async function init() {
 
   // 轉成 songs 物件（key = "title / artist"）
   songs = {};
+  songKeyById = {};
+  songMetaByKey = {};
   list.forEach((s) => {
+    const songIdRaw = (s.song_id || "").trim();
+    const songId = normalizeSongId(songIdRaw);
     const title = (s.song_title || "").trim();
     const artist = (s.artist || "").trim();
     const key = `${title} / ${artist || ""}`.trim().replace(/\s+\/\s*$/, "");
 
-    const left = (s.mv_url || "").trim();
+    // 支援你描述的欄位：my_url（同時相容舊欄位 mv_url）
+    const left = (s.my_url || s.mv_url || "").trim();
     const nounRight = (s.noun_video || "").trim();
     const verbRight = (s.verb_video || "").trim();
     const adjRight = (s.adj_video || "").trim();
@@ -1590,10 +1702,21 @@ async function init() {
       verb: verbRight ? { left, right: verbRight } : null,
       adj: adjRight ? { left, right: adjRight } : null,
     };
+
+    if (songId) songKeyById[songId] = key;
+    songMetaByKey[key] = {
+      song_id: songIdRaw,
+      title,
+      artist,
+      lang: (s.lang || "").trim(),
+      my_url: left,
+      note: (s.note || "").trim(),
+    };
   });
 
   songKeys = Object.keys(songs).filter(Boolean);
   if (!songKeys.length) return;
+  // 預設先選第一首（若 URL 有 song 參數，後面會覆蓋）
   currentIndex = 0;
 
   renderSongSelect();
@@ -1606,11 +1729,26 @@ async function init() {
 
   // 系統 Queue：預設載入「全部歌曲」（你要的預設驗證）
   loadQueue(songKeys);
-  syncQueueIndexToCurrentSong();
   renderQueue();
 
-  // 進頁先載入第一首（不自動播放）
-  loadCurrent({ resetTwoStep: true });
+  // URL 自動選歌（從 query parameter: ?song=...）
+  const songIdFromUrl = getQueryParam("song");
+  if (songIdFromUrl) {
+    const ok = loadSong(songIdFromUrl, { autoPlay: false });
+    if (!ok) {
+      // 有帶 song 但找不到：只顯示錯誤，不回退載入第一首
+      currentIndex = -1;
+      if (songSelect) songSelect.value = "";
+      renderSongSelect();
+      showPageMessage("找不到對應歌曲，請從影片連結進入。", { type: "error" });
+    }
+  } else {
+    // 沒帶 song：預設第一首
+    clearPageMessage();
+    currentMode = "noun";
+    goToIndex(0, { autoPlay: false });
+  }
+
   setCurrentSongLabel();
   setModeTabsState();
   updateLoadBtnText();
@@ -1618,6 +1756,6 @@ async function init() {
   renderFavorites();
   renderQueue();
   // 對外提供方法（方便你在 console 測）
-  window.vocaSongQueue = { loadQueue, playAtIndex };
+  window.vocaSongQueue = { loadQueue, playAtIndex, getQueryParam };
 }
 init();
