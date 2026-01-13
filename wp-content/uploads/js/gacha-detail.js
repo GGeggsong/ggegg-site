@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return Number.isFinite(n) ? n : 0;
   }
 
-  /* ===== 全站碳排計算 ===== */
+  /* ===== Impact（觀看 + 碳排） ===== */
   const CO2_PER_VIEW_KG = 0.06;
 
   async function calcImpact() {
@@ -75,9 +75,10 @@ document.addEventListener("DOMContentLoaded", () => {
     impactCO2El.textContent = (totalViews * CO2_PER_VIEW_KG).toFixed(1);
   }
 
-  /* ===== 表格 ===== */
+  /* ===== Table render（完整公益狀態） ===== */
   function loadSheet(type) {
     tableBody.innerHTML = "";
+
     fetch(SHEETS[type], { cache: "no-store" })
       .then(r => r.text())
       .then(text => {
@@ -88,15 +89,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
         lines.slice(1).forEach(line => {
           const cols = parseCsvLine(line);
+
           if (String(cols[idx.enabled]).toUpperCase() !== "TRUE") return;
+
+          const item = cols[idx.item] || "";
+          const ytUrl = cols[idx.yt_url] || cols[idx.yturl] || "";
+          const views = cols[idx.views] || "0";
+          const merchant = cols[idx.merchant] || "—";
+
+          const donateTriggered =
+            String(cols[idx.donate_triggered] || "").toUpperCase() === "TRUE";
+          const receiptUrl = cols[idx.receipt_url] || "";
+
+          let statusHtml = `<span class="status running">進行中</span>`;
+          if (receiptUrl) {
+            statusHtml = `
+              <a href="${receiptUrl}" target="_blank" class="status done">
+                ✅ 已完成捐款（查看收據）
+              </a>`;
+          } else if (donateTriggered) {
+            statusHtml = `<span class="status triggered">🟡 已達捐款門檻</span>`;
+          }
 
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${cols[idx.item] || ""}</td>
-            <td><a href="${cols[idx.yt_url] || cols[idx.yturl] || cols[idx.yt_url]}" target="_blank">YouTube</a></td>
-            <td class="views">${cols[idx.views] || "0"}</td>
-            <td>${cols[idx.merchant] || "—"}</td>
-            <td>—</td>
+            <td>${item}</td>
+            <td>${ytUrl ? `<a href="${ytUrl}" target="_blank">YouTube</a>` : "—"}</td>
+            <td class="views">${views}</td>
+            <td>${merchant}</td>
+            <td>${statusHtml}</td>
           `;
           tableBody.appendChild(tr);
         });
