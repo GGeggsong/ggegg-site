@@ -249,6 +249,27 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
       color: #666;
       min-height: 20px;
     }
+
+    /* ===== 轉蛋影響力摘要 ===== */
+    .impact-box {
+      margin: 18px auto 8px;
+      padding: 12px 16px;
+      max-width: 520px;
+      background: #fafafa;
+      border-radius: 12px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .impact-box strong {
+      font-weight: 600;
+    }
+
+    .impact-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #777;
+    }
   </style>
 
 
@@ -264,6 +285,16 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 </div>
 
 <div id="status">尚未載入球池</div>
+
+<!-- ===== 影響力摘要（主頁只放爽感數字） ===== -->
+<div class="impact-box" id="impactBox">
+  🎲 轉蛋影片總共已被觀看 <strong id="impactViews">—</strong> 次  
+  <br>
+  ⏱ 約幫世界省下 <strong id="impactHours">—</strong> 小時的決策時間
+  <div class="impact-sub">
+    * 根據 YouTube 官方觀看數保守估算
+  </div>
+</div>
 
 <div class="shorts-wrapper">
   <iframe id="player" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -282,6 +313,7 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 </table>
 
 <script src="/wp-content/uploads/js/vocabulary-gacha.js"></script>
+
 
 
 

@@ -1,4 +1,4 @@
-/* Vocabulary Gacha - Header-based Stable Version */
+/* Vocabulary Gacha - with Impact Counter */
 
 console.log("Vocabulary Gacha loaded");
 
@@ -24,6 +24,9 @@ let lastIndex = -1;
 const statusEl = document.getElementById("status");
 const playerEl = document.getElementById("player");
 const tableEl  = document.getElementById("poolTable");
+
+const impactViewsEl = document.getElementById("impactViews");
+const impactHoursEl = document.getElementById("impactHours");
 
 /* =========================
    Helpers
@@ -51,9 +54,7 @@ function toEmbed(url) {
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0` : "";
 }
 
-/* =========================
-   CSV Parser（原完整版本）
-========================= */
+/* ===== CSV parser（與 detail.js 同邏輯） ===== */
 function parseCsvLine(line) {
   const out = [];
   let cur = "";
@@ -61,7 +62,6 @@ function parseCsvLine(line) {
 
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
-
     if (ch === '"') {
       if (inQuotes && line[i + 1] === '"') {
         cur += '"';
@@ -71,73 +71,81 @@ function parseCsvLine(line) {
       }
       continue;
     }
-
     if (ch === "," && !inQuotes) {
       out.push(cur);
       cur = "";
       continue;
     }
-
     cur += ch;
   }
-
   out.push(cur);
   return out.map(s => String(s).trim());
 }
 
-function parseCsv(csvText) {
-  const lines = String(csvText || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .filter(l => l.trim().length > 0);
-
-  if (lines.length <= 1) return [];
-
-  /* === 用 header 建 index map === */
-  const headers = parseCsvLine(lines[0]);
-  const headerIndex = {};
-  headers.forEach((h, i) => {
-    headerIndex[h] = i;
-  });
-
-  const required = ["Item", "YT_URL", "enabled"];
-  for (const k of required) {
-    if (!(k in headerIndex)) {
-      console.error("Missing column:", k);
-      return [];
-    }
-  }
-
-  const items = [];
-
-  for (const line of lines.slice(1)) {
-    const cols = parseCsvLine(line);
-
-    const enabled =
-      String(cols[headerIndex["enabled"]] || "")
-        .trim()
-        .toUpperCase() === "TRUE";
-
-    if (!enabled) continue;
-
-    const item = cols[headerIndex["Item"]] || "";
-    const ytUrl = cols[headerIndex["YT_URL"]] || "";
-    if (!item || !ytUrl) continue;
-
-    items.push({
-      item: item.trim(),
-      ytUrl: ytUrl.trim(),
-      merchant: (cols[headerIndex["merchant"]] || "").trim(),
-      merchantUrl: (cols[headerIndex["merchant_url"]] || "").trim()
-    });
-  }
-
-  return items;
+function normKey(s) {
+  return String(s || "")
+    .replace(/\uFEFF/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "");
 }
 
 /* =========================
-   Public API
+   Impact Counter（核心新增）
+========================= */
+const MINUTES_PER_VIEW = 5;
+
+function loadImpactCounter() {
+  let totalViews = 0;
+  let loaded = 0;
+
+  Object.values(SHEETS).forEach(url => {
+    fetch(url, { cache: "no-store" })
+      .then(r => r.text())
+      .then(text => {
+        const lines = text
+          .replace(/\uFEFF/g, "")
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n")
+          .split("\n")
+          .filter(l => l.trim().length > 0);
+
+        if (lines.length <= 1) return;
+
+        const headers = parseCsvLine(lines[0]);
+        const headerIndex = {};
+        headers.forEach((h, i) => {
+          headerIndex[normKey(h)] = i;
+        });
+
+        lines.slice(1).forEach(line => {
+          const cols = parseCsvLine(line);
+
+          const enabled =
+            String(cols[headerIndex[normKey("enabled")]] || "")
+              .trim()
+              .toUpperCase() === "TRUE";
+          if (!enabled) return;
+
+          const v = Number(
+            cols[headerIndex[normKey("views")]] || 0
+          );
+          if (!isNaN(v)) totalViews += v;
+        });
+      })
+      .finally(() => {
+        loaded++;
+        if (loaded === Object.keys(SHEETS).length) {
+          const savedHours = Math.round((totalViews * MINUTES_PER_VIEW) / 60);
+          if (impactViewsEl) impactViewsEl.textContent = totalViews.toLocaleString();
+          if (impactHoursEl) impactHoursEl.textContent = savedHours.toLocaleString();
+        }
+      });
+  });
+}
+
+/* =========================
+   Public API（原本功能）
 ========================= */
 window.loadPool = function(type) {
   if (!SHEETS[type]) return;
@@ -151,24 +159,33 @@ window.loadPool = function(type) {
   fetch(SHEETS[type], { cache: "no-store" })
     .then(r => r.text())
     .then(text => {
-      pool = parseCsv(text);
+      const lines = text.split("\n").filter(l => l.trim());
+      const headers = parseCsvLine(lines[0]);
+      const idx = {};
+      headers.forEach((h, i) => idx[h] = i);
+
+      lines.slice(1).forEach(line => {
+        const cols = parseCsvLine(line);
+        if (String(cols[idx.enabled]).toUpperCase() !== "TRUE") return;
+        pool.push({
+          item: cols[idx.Item],
+          ytUrl: cols[idx.YT_URL],
+          merchant: cols[idx.merchant],
+          merchantUrl: cols[idx.merchant_url]
+        });
+      });
+
       renderTable();
       setStatus(`已載入 ${pool.length} 筆`);
-    })
-    .catch(err => {
-      console.error(err);
-      setStatus("載入失敗");
     });
 };
 
 window.spin = function() {
   if (!pool.length) return;
-
   let i;
   do {
     i = Math.floor(Math.random() * pool.length);
   } while (i === lastIndex && pool.length > 1);
-
   lastIndex = i;
   playerEl.src = toEmbed(pool[i].ytUrl);
 };
@@ -188,10 +205,9 @@ function renderTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(p.item)}</td>
-      <td>
-        ${p.merchantUrl
-          ? `<a href="${escapeHtml(p.merchantUrl)}" target="_blank">${escapeHtml(p.merchant)}</a>`
-          : escapeHtml(p.merchant || "—")}
+      <td>${p.merchantUrl
+        ? `<a href="${escapeHtml(p.merchantUrl)}" target="_blank">${escapeHtml(p.merchant)}</a>`
+        : escapeHtml(p.merchant || "—")}
       </td>
       <td><button onclick="playIndex(${i})">播放</button></td>
       <td><a href="${escapeHtml(p.ytUrl)}" target="_blank">YT</a></td>
@@ -200,4 +216,8 @@ function renderTable() {
   });
 }
 
+/* =========================
+   Init
+========================= */
 setStatus("尚未載入球池");
+loadImpactCounter();
