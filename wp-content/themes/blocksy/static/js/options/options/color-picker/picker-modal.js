@@ -2,9 +2,10 @@ import {
 	createElement,
 	Component,
 	useRef,
-	useCallback,
 	useMemo,
 	useEffect,
+	useLayoutEffect,
+	useState,
 	createRef,
 	Fragment,
 } from '@wordpress/element'
@@ -40,7 +41,6 @@ const getLeftForEl = (modal, el) => {
 	if (!el) return
 
 	let style = getComputedStyle(modal)
-
 	let wrapperLeft = parseFloat(style.left)
 
 	el = el.firstElementChild.getBoundingClientRect()
@@ -168,14 +168,22 @@ const PickerModal = ({
 		valueToCheck = inheritValue
 	}
 
-	const arrowLeft = useMemo(
-		() =>
-			wrapperProps.ref &&
-			wrapperProps.ref.current &&
-			el &&
-			getLeftForEl(wrapperProps.ref.current, el.current),
-		[wrapperProps.ref && wrapperProps.ref.current, el && el.current]
-	)
+	const [arrowLeft, setArrowLeft] = useState(null)
+
+	useLayoutEffect(() => {
+		const modalEl = wrapperProps.ref?.current
+		const elRef = el?.current
+
+		if (modalEl && elRef) {
+			const newArrowLeft = getLeftForEl(modalEl, elRef)
+			const newValue = newArrowLeft?.['--option-modal-arrow-position']
+			const currentValue = arrowLeft?.['--option-modal-arrow-position']
+
+			if (newValue !== currentValue) {
+				setArrowLeft(newArrowLeft)
+			}
+		}
+	})
 
 	return (
 		<animated.div

@@ -21,7 +21,7 @@ const TermTextPreview = ({
 	taxonomy,
 
 	attributes,
-	attributes: { has_field_link },
+	attributes: { has_field_link, has_field_link_wrap_content },
 
 	fieldsDescriptor,
 }) => {
@@ -43,7 +43,7 @@ const TermTextPreview = ({
 
 	let attrs = {}
 
-	if (has_field_link === 'yes') {
+	if (has_field_link === 'yes' && has_field_link_wrap_content === 'no') {
 		TagName = 'a'
 
 		attrs.href = '#'

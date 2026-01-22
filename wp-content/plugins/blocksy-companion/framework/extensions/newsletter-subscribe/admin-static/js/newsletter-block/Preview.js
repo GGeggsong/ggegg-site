@@ -1,6 +1,7 @@
 import { createElement } from '@wordpress/element'
 import { RichText } from '@wordpress/block-editor'
 import { __ } from 'ct-i18n'
+import { useEffect } from 'react'
 
 const { has_cookies_checkbox } = window.blc_newsletter_data
 
@@ -16,6 +17,19 @@ const Preview = ({ attributes, buttonStyles, setAttributes }) => {
 		newsletter_subscribe_container_type = 'default',
 		newsletter_subscribe_name_required = 'no',
 	} = attributes
+
+	useEffect(() => {
+		if (newsletter_subscribe_name_required === 'yes') {
+			setAttributes({
+				newsletter_subscribe_name_label: `${newsletter_subscribe_name_label} *`,
+			})
+		} else {
+			setAttributes({
+				newsletter_subscribe_name_label:
+					newsletter_subscribe_name_label.replace(' *', ''),
+			})
+		}
+	}, [newsletter_subscribe_name_required])
 
 	return (
 		<div className="ct-newsletter-subscribe-block">
@@ -46,11 +60,7 @@ const Preview = ({ attributes, buttonStyles, setAttributes }) => {
 							type="text"
 							name="FNAME"
 							title="Name"
-							value={`${newsletter_subscribe_name_label}${
-								newsletter_subscribe_name_required === 'yes'
-									? ' *'
-									: ''
-							}`}
+							value={newsletter_subscribe_name_label}
 							onChange={(e) => {
 								setAttributes({
 									newsletter_subscribe_name_label:

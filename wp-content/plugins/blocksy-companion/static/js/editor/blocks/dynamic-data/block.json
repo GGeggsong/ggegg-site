@@ -19,6 +19,11 @@
 			"default": "no"
 		},
 
+		"has_field_link_wrap_content": {
+			"type": "string",
+			"default": "no"
+		},
+
 		"link_source": {
 			"type": "string",
 			"default": ""
@@ -236,6 +241,7 @@
 		"taxonomy",
 		"termId",
 		"termIcon",
-		"termImage"
+		"termImage",
+		"has_item_link"
 	]
 }

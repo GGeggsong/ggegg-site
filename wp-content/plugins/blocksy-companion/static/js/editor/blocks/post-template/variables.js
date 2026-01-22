@@ -103,7 +103,8 @@ export const getVariablesDefinitions = ({ attributes, context }) => {
 		if (!isSlideshow) {
 			variables.push({
 				variables: {
-					selector: `.editor-styles-wrapper [data-id='${uniqueId}'] :where(.is-layout-flow > *)`,
+					selector: `[data-id='${uniqueId}'] :where(.wp-block-post)`,
+					variableType: 'property',
 					variable: 'margin-block-end',
 					unit: '',
 					responsive: true,

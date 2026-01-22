@@ -35,6 +35,10 @@
 		},
 		"layout": {
 			"type": "object"
+		},
+		"has_item_link": {
+			"type": "string",
+			"default": "no"
 		}
 	},
 
@@ -56,5 +60,9 @@
 		"include_term_ids",
 		"exclude_term_ids",
 		"sticky_posts"
-	]
+	],
+
+	"providesContext": {
+		"has_item_link": "has_item_link"
+	}
 }

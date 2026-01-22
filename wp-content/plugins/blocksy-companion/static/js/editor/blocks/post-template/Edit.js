@@ -13,6 +13,7 @@ import classnames from 'classnames'
 
 import { useSelect } from '@wordpress/data'
 import { Panel, PanelBody, Spinner, ToolbarGroup } from '@wordpress/components'
+import { OptionsPanel } from 'blocksy-options'
 
 import { useFlexySlider } from '../../hooks/use-flexy-slider'
 
@@ -354,7 +355,9 @@ const Edit = ({
 
 			<InspectorControls>
 				{isGridLayout && isManualMode ? (
-					<PanelBody title="Layout" initialOpen>
+					<PanelBody
+						title={__('Layout', 'blocksy-companion')}
+						initialOpen>
 						<RangeControl
 							label={__('Desktop Columns', 'blocksy-companion')}
 							onChange={(columns) =>
@@ -387,6 +390,29 @@ const Edit = ({
 						/>
 					</PanelBody>
 				) : null}
+
+				<PanelBody>
+					<OptionsPanel
+						purpose="gutenberg"
+						onChange={(optionId, optionValue) => {
+							setAttributes({
+								[optionId]: optionValue,
+							})
+						}}
+						options={{
+							has_item_link: {
+								type: 'ct-switch',
+								label: __(
+									'Link to post',
+									'blocksy-companion'
+								),
+								value: '',
+							},
+						}}
+						value={attributes}
+						hasRevertButton={false}
+					/>
+				</PanelBody>
 			</InspectorControls>
 
 			<div {...blockProps}>

@@ -12,12 +12,20 @@ const Preview = ({ attributes }) => {
 		return <Spinner />
 	}
 
+	const isSlideshow = attributes.has_slideshow === 'yes'
+
 	return (
 		<>
 			<RawHTML>{blockData.block}</RawHTML>
 			{blockData && blockData.dynamic_styles && (
 				<style>{blockData.dynamic_styles}</style>
 			)}
+			{blockData &&
+				attributes.has_pagination === 'yes' &&
+				!isSlideshow &&
+				blockData.pagination_output && (
+					<RawHTML>{blockData.pagination_output}</RawHTML>
+				)}
 		</>
 	)
 }

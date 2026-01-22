@@ -469,6 +469,13 @@ export const handleMenuVariables = ({ itemId, values }) => {
 		menuIndicatorColor: [
 			{
 				selector: assembleSelector(getRootSelectorFor({ itemId })),
+				variable: 'menu-indicator-initial-color',
+				type: 'color:default',
+				responsive: true,
+			},
+
+			{
+				selector: assembleSelector(getRootSelectorFor({ itemId })),
 				variable: 'menu-indicator-hover-color',
 				type: 'color:hover',
 				responsive: true,
@@ -550,6 +557,20 @@ export const handleMenuVariables = ({ itemId, values }) => {
 		transparentMenuFontColor,
 
 		transparentMenuIndicatorColor: [
+			{
+				selector: assembleSelector(
+					mutateSelector({
+						selector: getRootSelectorFor({ itemId }),
+						operation: 'between',
+						to_add: '[data-transparent-row="yes"]',
+					})
+				),
+
+				variable: 'menu-indicator-initial-color',
+				type: 'color:default',
+				responsive: true,
+			},
+
 			{
 				selector: assembleSelector(
 					mutateSelector({
@@ -667,6 +688,19 @@ export const handleMenuVariables = ({ itemId, values }) => {
 		stickyMenuFontColor,
 
 		stickyMenuIndicatorColor: [
+			{
+				selector: assembleSelector(
+					mutateSelector({
+						selector: getRootSelectorFor({ itemId }),
+						operation: 'between',
+						to_add: '[data-sticky*="yes"]',
+					})
+				),
+				variable: 'menu-indicator-initial-color',
+				type: 'color:default',
+				responsive: true,
+			},
+
 			{
 				selector: assembleSelector(
 					mutateSelector({

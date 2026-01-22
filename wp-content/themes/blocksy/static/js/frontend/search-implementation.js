@@ -39,9 +39,11 @@ const cachedFetch = (url, nonce = '') => {
 
 	return fetch(url, {
 		signal: controller.signal,
-		headers: {
-			'X-WP-Nonce': nonce
-		}
+		headers: nonce
+			? {
+					'X-WP-Nonce': nonce
+				}
+			: {}
 	}).then((response) => {
 		store[url] = response.clone()
 

@@ -1,9 +1,11 @@
-import { mountMenuLevel } from './menu'
+import { mountMenuLevel, isMegaMenuCustomWidthCentered } from './menu'
 
 export const mount = (menu) => {
 	if (window.wp && wp && wp.customize && wp.customize('active_theme')) {
-		const maybeMegaMenuWithCustomWidth = [...menu.children].find((el) =>
-			el.matches('.ct-mega-menu:not(.ct-mega-menu-custom-width)')
+		const maybeMegaMenuWithCustomWidth = [...menu.children].find(
+			(el) =>
+				el.matches('.ct-mega-menu:not(.ct-mega-menu-custom-width)') &&
+				!isMegaMenuCustomWidthCentered(el)
 		)
 
 		if (maybeMegaMenuWithCustomWidth) {

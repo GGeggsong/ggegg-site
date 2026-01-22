@@ -225,6 +225,21 @@ const Edit = ({
 											},
 										},
 									},
+
+									has_pagination_condition: {
+										type: 'ct-condition',
+										condition: { has_slideshow: 'no' },
+										options: {
+											has_pagination: {
+												type: 'ct-switch',
+												label: __(
+													'Pagination',
+													'blocksy-companion'
+												),
+												value: '',
+											},
+										},
+									},
 								}}
 								value={attributes}
 								hasRevertButton={false}

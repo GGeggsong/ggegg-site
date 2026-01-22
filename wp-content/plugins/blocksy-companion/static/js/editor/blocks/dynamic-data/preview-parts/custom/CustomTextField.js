@@ -19,6 +19,7 @@ const CustomTextField = ({
 		after,
 		fallback,
 		has_field_link,
+		has_field_link_wrap_content,
 	},
 	fieldData,
 }) => {
@@ -44,7 +45,7 @@ const CustomTextField = ({
 
 	let valueToRender = fieldData || ''
 
-	if (has_field_link === 'yes') {
+	if (has_field_link === 'yes' && has_field_link_wrap_content === 'no') {
 		valueToRender = `<a href="#" rel="noopener noreferrer">${valueToRender}</a>`
 	}
 
@@ -55,6 +56,10 @@ const CustomTextField = ({
 
 	if (!isFallback && valueToRender && typeof valueToRender === 'string') {
 		valueToRender = before + valueToRender + after
+	}
+
+	if (has_field_link === 'yes' && has_field_link_wrap_content === 'yes') {
+		valueToRender = `<a href="#" rel="noopener noreferrer">${valueToRender}</a>`
 	}
 
 	let css = ''

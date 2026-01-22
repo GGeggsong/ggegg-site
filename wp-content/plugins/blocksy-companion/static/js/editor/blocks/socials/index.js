@@ -30,6 +30,10 @@ registerBlockType('blocksy/socials', {
 	},
 	parent: ['blocksy/widgets-wrapper'],
 	attributes: {
+		justifyContent: {
+			type: 'string',
+			default: 'left',
+		},
 		...defaultAttributes,
 		...colorsDefaults,
 	},

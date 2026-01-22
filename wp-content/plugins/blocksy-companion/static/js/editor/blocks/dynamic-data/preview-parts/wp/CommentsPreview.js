@@ -9,7 +9,13 @@ import { useEntityRecords } from '@wordpress/core-data'
 const CommentsPreview = ({
 	postId,
 	postType,
-	attributes: { has_field_link, zero_text, single_text, multiple_text },
+	attributes: {
+		has_field_link,
+		has_field_link_wrap_content,
+		zero_text,
+		single_text,
+		multiple_text,
+	},
 }) => {
 	const { commentsData } = useCommentsData({ postId })
 
@@ -23,7 +29,7 @@ const CommentsPreview = ({
 			? single_text
 			: multiple_text
 
-	if (has_field_link === 'yes') {
+	if (has_field_link === 'yes' && has_field_link_wrap_content === 'no') {
 		return (
 			<a href="#" rel="noopener noreferrer">
 				{commentsText.replace('%', comments_num)}

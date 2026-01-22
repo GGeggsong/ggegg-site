@@ -95,7 +95,9 @@ registerDynamicChunk('blocksy_account', {
 		}
 
 		if (!maybeTemplate) {
-			let maybeAccount = document.querySelector('#account-modal')
+			let maybeAccount = document.querySelector(
+				'#ct-account-modal-template'
+			)
 
 			if (!maybeAccount) {
 				location = document.querySelector(
@@ -108,17 +110,27 @@ registerDynamicChunk('blocksy_account', {
 
 				return
 			}
+			const templateElement = document.createElement('div')
+			const templateContent = maybeAccount.content.cloneNode(true)
 
-			maybeTemplate = maybeAccount.outerHTML
+			templateElement.insertAdjacentHTML(
+				'beforeend',
+				templateContent.firstElementChild.outerHTML
+			)
+
+			maybeTemplate = templateElement.firstChild.outerHTML
+
 			removeTurnstile()
 			maybeAccount.remove()
 		}
 
 		let panel = document.querySelector('#account-modal')
+
 		if (!panel) {
 			document
 				.querySelector('.ct-drawer-canvas')
 				.insertAdjacentHTML('beforeend', maybeTemplate)
+
 			panel = document.querySelector('.ct-drawer-canvas').lastChild
 		}
 

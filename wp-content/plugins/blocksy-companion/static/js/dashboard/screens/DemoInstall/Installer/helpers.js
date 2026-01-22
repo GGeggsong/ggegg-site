@@ -66,15 +66,81 @@ const performSingleRequest = async (
 	}
 }
 
+/**
+ * Parse Server-Sent Events (SSE) response stream.
+ *
+ * SSE format:
+ *   event: <event-type>
+ *   data: <json-payload>
+ *   <empty line marks end of event>
+ *
+ * Key fix: HTTP chunked responses can split SSE events across multiple chunks
+ * in arbitrary ways. The final chunk may not end with a newline, leaving the
+ * last `event:` and `data:` lines in the buffer when the stream ends.
+ * We handle this by parsing any remaining buffer content when done=true.
+ */
 const parseSSEResponse = async (response, onStatus) => {
 	const reader = response.body.getReader()
 	const decoder = new TextDecoder()
 	let buffer = ''
 
+	// Track current event across chunks - these persist between read() calls
+	// because a single SSE event can span multiple HTTP chunks
+	let currentEvent = null
+	let currentData = ''
+
+	const processEvent = () => {
+		if (!currentEvent || !currentData) {
+			return null
+		}
+
+		try {
+			const data = JSON.parse(currentData)
+
+			if (currentEvent === 'status' && onStatus) {
+				onStatus(data.message)
+			} else if (currentEvent === 'complete') {
+				return {
+					success: true,
+					data: data,
+				}
+			} else if (currentEvent === 'error') {
+				throw new Error(data.message)
+			}
+		} catch (e) {
+			if (e.message) {
+				throw e
+			}
+			console.error('Failed to parse SSE data:', e)
+		}
+
+		currentEvent = null
+		currentData = ''
+		return null
+	}
+
 	while (true) {
 		const { done, value } = await reader.read()
 
 		if (done) {
+			// Process any remaining data in buffer before ending
+			// Buffer may contain multiple lines if stream ended without final newline
+			if (buffer) {
+				const remainingLines = buffer.split('\n')
+				for (const line of remainingLines) {
+					if (line.startsWith('event: ')) {
+						currentEvent = line.slice(7)
+					} else if (line.startsWith('data: ')) {
+						currentData = line.slice(6)
+					}
+				}
+			}
+
+			// Process any remaining event
+			const result = processEvent()
+			if (result) {
+				return result
+			}
 			break
 		}
 
@@ -84,38 +150,17 @@ const parseSSEResponse = async (response, onStatus) => {
 		const lines = buffer.split('\n')
 		buffer = lines.pop() || '' // Keep incomplete line in buffer
 
-		let currentEvent = null
-		let currentData = ''
-
 		for (const line of lines) {
 			if (line.startsWith('event: ')) {
 				currentEvent = line.slice(7)
 			} else if (line.startsWith('data: ')) {
 				currentData = line.slice(6)
-			} else if (line === '' && currentEvent && currentData) {
+			} else if (line === '') {
 				// End of event
-				try {
-					const data = JSON.parse(currentData)
-
-					if (currentEvent === 'status' && onStatus) {
-						onStatus(data.message)
-					} else if (currentEvent === 'complete') {
-						return {
-							success: true,
-							data: data,
-						}
-					} else if (currentEvent === 'error') {
-						throw new Error(data.message)
-					}
-				} catch (e) {
-					if (e.message) {
-						throw e
-					}
-					console.error('Failed to parse SSE data:', e)
+				const result = processEvent()
+				if (result) {
+					return result
 				}
-
-				currentEvent = null
-				currentData = ''
 			}
 		}
 	}
@@ -130,6 +175,9 @@ export const performRequestWithExponentialBackoff = async (
 ) => {
 	let attempt = 0
 	const label = request.title
+
+	// For SSE requests, track safe duration based on successful request times
+	let safeDuration = null
 
 	while (attempt < maxRetries) {
 		// Run cleanup request before retry attempts (not on first attempt)
@@ -166,16 +214,33 @@ export const performRequestWithExponentialBackoff = async (
 		console.log(`[${label}] Attempt ${attempt + 1}/${maxRetries}`)
 		const startTime = Date.now()
 
+		// For SSE retries after failure, pass safe duration
+		let extraBody = {}
+		if (strategy === 'sse' && safeDuration !== null) {
+			extraBody.duration = safeDuration
+			console.log(`[${label}] Using safe duration: ${safeDuration}s`)
+		}
+
 		let response
 		try {
 			response = await performSingleRequest(
 				request,
 				requestsPayload,
-				{},
+				extraBody,
 				{ strategy, onStatus }
 			)
 		} catch (e) {
-			console.log(`[${label}] Attempt ${attempt + 1} failed: ${e.message}`)
+			const duration = Date.now() - startTime
+			console.log(`[${label}] Attempt ${attempt + 1} failed after ${duration}ms: ${e.message}`)
+
+			// For SSE, calculate safe duration based on how long the request ran before failing
+			// Only calculate once from the first failure
+			if (strategy === 'sse' && safeDuration === null) {
+				// Use 70% of the time it took before failure
+				safeDuration = Math.max(10, Math.floor((duration * 0.7) / 1000))
+				console.log(`[${label}] Calculated safe duration: ${safeDuration}s`)
+			}
+
 			attempt++
 			continue
 		}
@@ -187,8 +252,10 @@ export const performRequestWithExponentialBackoff = async (
 			strategy === 'sse' &&
 			response.data?.status === 'content_import_timeout_reached'
 		) {
-			// Calculate safe duration: 70% of request time
-			const safeDuration = Math.floor((duration * 0.7) / 1000)
+			// Calculate safe duration if not already set from a previous failure
+			if (safeDuration === null) {
+				safeDuration = Math.max(10, Math.floor((duration * 0.7) / 1000))
+			}
 			console.log(
 				`[${label}] Timeout reached, continuing with chunked import (safe duration: ${safeDuration}s)`
 			)

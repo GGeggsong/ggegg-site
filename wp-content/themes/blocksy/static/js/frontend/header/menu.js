@@ -1,13 +1,37 @@
 import { isTouchDevice } from '../helpers/is-touch-device'
 import { isIosDevice } from '../helpers/is-ios-device'
 
+export const isMegaMenuCustomWidthCentered = (el) => {
+	return (
+		el.classList.contains('ct-mega-menu-custom-width') &&
+		el.classList.contains('ct-mega-menu-centered')
+	)
+}
+
 const isRtl = () => document.querySelector('html').dir === 'rtl'
 
-const isEligibleForSubmenu = (el) =>
-	el.className.includes('animated-submenu') &&
-	(!el.parentNode.classList.contains('menu') ||
-		(el.className.indexOf('ct-mega-menu') === -1 &&
-			el.parentNode.classList.contains('menu')))
+const isEligibleForSubmenu = (el) => {
+	if (!el.className.includes('animated-submenu')) {
+		return false
+	}
+
+	if (el.className.includes('ct-mega-menu')) {
+		// If not custom width, it should not apply data-submenu attribute
+		// at all.
+		if (!el.classList.contains('ct-mega-menu-custom-width')) {
+			return false
+		}
+
+		// Don't treat centered custom width mega menus as regular sub-menus.
+		if (isMegaMenuCustomWidthCentered(el)) {
+			return false
+		}
+
+		return true
+	}
+
+	return true
+}
 
 const getAllParents = (a) => {
 	var els = []
@@ -93,7 +117,7 @@ const getPreferedPlacementFor = (el) => {
 			el.matches('.sub-menu')
 		),
 
-		...[submenuWithMostParents.el],
+		...[submenuWithMostParents.el]
 	]
 
 	const allSubmenusAlignedWidth = allSubmenus.reduce((acc, el, index) => {
@@ -108,7 +132,7 @@ const getPreferedPlacementFor = (el) => {
 						style.getPropertyValue(
 							'--dropdown-horizontal-offset'
 						) || '5px'
-				  ))
+					))
 		)
 	}, 0)
 
@@ -145,7 +169,7 @@ const computeItemSubmenuFor = (
 	{
 		// left -- 1st level menu items
 		// end  -- submenus
-		startPosition = 'end',
+		startPosition = 'end'
 	}
 ) => {
 	const menu = reference.querySelector('.sub-menu')
@@ -256,7 +280,7 @@ const closeSubmenu = (e) => {
 
 		if (e.focusOnIndicator) {
 			childIndicator.focus({
-				focusVisible: true,
+				focusVisible: true
 			})
 		}
 	}
@@ -273,7 +297,7 @@ const closeSubmenu = (e) => {
 }
 
 const mountMenuForElement = (el, args = {}) => {
-	if (el.classList.contains('ct-mega-menu-custom-width')) {
+	if (isMegaMenuCustomWidthCentered(el)) {
 		const menu = el.querySelector('.sub-menu')
 
 		const elRect = el.getBoundingClientRect()
@@ -330,7 +354,7 @@ const mountMenuForElement = (el, args = {}) => {
 		if (e.keyCode == 27) {
 			closeSubmenu({
 				target: el.firstElementChild,
-				focusOnIndicator: true,
+				focusOnIndicator: true
 			})
 		}
 	})
@@ -341,7 +365,7 @@ const mountMenuForElement = (el, args = {}) => {
 		}
 
 		closeSubmenu({
-			target: el.firstElementChild,
+			target: el.firstElementChild
 		})
 	})
 
@@ -362,7 +386,7 @@ const mountMenuForElement = (el, args = {}) => {
 					.filter((firstLevelEl) => firstLevelEl !== el)
 					.map((firstLevelEl) => {
 						closeSubmenu({
-							target: firstLevelEl.firstElementChild,
+							target: firstLevelEl.firstElementChild
 						})
 					})
 			}
@@ -416,7 +440,7 @@ const mountMenuForElement = (el, args = {}) => {
 						'mouseleave',
 						() => {
 							closeSubmenu({
-								target: el.firstElementChild,
+								target: el.firstElementChild
 							})
 						},
 						{ once: true }

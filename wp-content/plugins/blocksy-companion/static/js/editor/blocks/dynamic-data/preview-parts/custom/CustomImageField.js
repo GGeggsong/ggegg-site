@@ -10,6 +10,10 @@ const CustomImageField = ({
 }) => {
 	let maybeUrl = fieldData?.url
 
+	if (fieldData?.full_url) {
+		maybeUrl = fieldData.full_url
+	}
+
 	if (fieldData?.sizes?.[sizeSlug]) {
 		if (typeof fieldData.sizes[sizeSlug] === 'string') {
 			maybeUrl = fieldData.sizes[sizeSlug]

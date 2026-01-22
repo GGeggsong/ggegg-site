@@ -729,6 +729,21 @@ const DynamicDataInspectorControls = ({
 												},
 										  }
 										: {}),
+
+									has_field_link_wrap_content_condition: {
+										type: 'ct-condition',
+										condition: { has_field_link: 'yes' },
+										options: {
+											has_field_link_wrap_content: {
+												type: 'ct-switch',
+												label: __(
+													'Include Before/After in link',
+													'blocksy-companion'
+												),
+												value: 'no',
+											},
+										},
+									},
 								}}
 								value={attributes}
 								hasRevertButton={false}
